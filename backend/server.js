@@ -1,1 +1,0 @@
-console.log("Backend BQ19 ativo");
