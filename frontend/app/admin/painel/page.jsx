@@ -29,14 +29,13 @@ export default function AdminPainel() {
 
       const json = await res.json();
       setMsg(`Upload concluído. Usuários criados: ${json.users_created}`);
-    } catch (error) {
-      console.error(error);
-      setMsg("Erro ao enviar o arquivo");
+    } catch (e) {
+      setMsg("Erro ao enviar arquivo");
     }
   };
 
   return (
-    <div style={{ padding: 40 }}>
+    <div>
       <h1>Painel Admin – Best Quality 19</h1>
 
       <input
@@ -45,12 +44,13 @@ export default function AdminPainel() {
         onChange={(e) => setFile(e.target.files[0])}
       />
 
-      <br />
-      <br />
+      <br /><br />
 
-      <button onClick={uploadUsuarios}>Enviar Excel</button>
+      <button onClick={uploadUsuarios}>
+        Enviar Excel
+      </button>
 
-      <p style={{ marginTop: 20 }}>{msg}</p>
+      <p>{msg}</p>
     </div>
   );
 }
