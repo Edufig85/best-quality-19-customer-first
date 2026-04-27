@@ -5,6 +5,45 @@ import * as XLSX from "xlsx";
 import Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
 
+app.post("/admin/import-users", upload.single("file"), (req, res) => {
+  try {
+    if (!req.file || !req.file.buffer) {
+      return res.status(400).json({ error: "Arquivo não recebido" });
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    const exists = db.prepare("SELECT id FROM users WHERE cpf = ?");
+    const insert = db.prepare(
+      "INSERT INTO users (cpf, nome, password) VALUES (?, ?, ?)"
+    );
+
+    let created = 0;
+
+    rows.forEach((row) => {
+      const cpf = String(row.CPF || row.cpf || "")
+        .replace(/\D/g, "")
+        .trim();
+      const nome = String(row.Nome || row.nome || "").trim();
+
+      if (cpf.length === 11 && nome) {
+        if (!exists.get(cpf)) {
+          insert.run(cpf, nome, bcrypt.hashSync(DEFAULT_PASSWORD, 10));
+          created++;
+        }
+      }
+    });
+
+    res.json({ users_created: created });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Erro ao importar usuários" });
+  }
+});
+
+
 /* ===============================
    APP
    =============================== */
