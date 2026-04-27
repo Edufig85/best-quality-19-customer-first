@@ -7,10 +7,10 @@ import bcrypt from 'bcryptjs'
 
 const app = express()
 app.use(cors({
-  origin: 'https://best-quality-19-customer-first.vercel.app',
-  methods: ['GET', 'POST'],
-  allowedHeaders: ['Content-Type']
-}))
+  origin: "https://best-quality-19-customer-first.vercel.app",
+  methods: ["GET", "POST", "OPTIONS"],
+  allowedHeaders: ["Content-Type"],
+}));
 app.use(express.json())
 
 const upload = multer({ dest: 'uploads/' })
