@@ -11,6 +11,16 @@ import bcrypt from "bcryptjs";
    =============================== */
 const app = express();
 
+await pool.query(`
+  CREATE TABLE IF NOT EXISTS users (
+    id SERIAL PRIMARY KEY,
+    cpf TEXT UNIQUE,
+    nome TEXT,
+    password TEXT,
+    must_change_password BOOLEAN DEFAULT true
+  );
+`);
+
 /* ===============================
    MIDDLEWARE
    =============================== */
