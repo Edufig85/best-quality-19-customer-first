@@ -1,5 +1,5 @@
-
-"name": "backend-bq19",
+{
+  "name": "backend-bq19",
   "type": "module",
   "scripts": {
     "start": "node server.js"
@@ -13,3 +13,4 @@
     "bcryptjs": "^2.4.3"
   }
 }
+``
