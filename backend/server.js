@@ -6,14 +6,17 @@ import Database from "better-sqlite3";
 import bcrypt from "bcryptjs";
 
 /* ===============================
-   APP E MIDDLEWARE
+   APP
    =============================== */
 const app = express();
 
+/* ===============================
+   MIDDLEWARE
+   =============================== */
 app.use(cors({
   origin: "https://best-quality-19-customer-first.vercel.app",
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"],
+  allowedHeaders: ["Content-Type"]
 }));
 
 app.use(express.json());
@@ -22,7 +25,7 @@ app.use(express.json());
    MULTER (MEMÓRIA)
    =============================== */
 const upload = multer({
-  storage: multer.memoryStorage(),
+  storage: multer.memoryStorage()
 });
 
 /* ===============================
@@ -65,3 +68,42 @@ app.post("/admin/import-users", upload.single("file"), (req, res) => {
     }
 
     const exists = db.prepare("SELECT id FROM users WHERE cpf = ?");
+    const insert = db.prepare(
+      "INSERT INTO users (cpf, nome, password) VALUES (?, ?, ?)"
+    );
+
+    let created = 0;
+
+    for (const r of rows) {
+      const cpf = String(r.CPF || "").trim();
+      const nome = String(r.Nome || "").trim();
+
+      if (!cpf || !nome) continue;
+
+      if (!exists.get(cpf)) {
+        insert.run(
+          cpf,
+          nome,
+          bcrypt.hashSync(DEFAULT_PASSWORD, 10)
+        );
+        created++;
+      }
+    }
+
+    return res.json({ users_created: created });
+  } catch (err) {
+    console.error("ERRO NO UPLOAD:", err);
+    return res.status(500).json({
+      error: "Erro interno ao processar o Excel"
+    });
+  }
+});
+
+/* ===============================
+   START
+   =============================== */
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log("Backend BQ19 rodando na porta", PORT);
+});
+``
