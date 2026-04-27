@@ -2,7 +2,8 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import * as XLSX from "xlsx";
-import Database from "better-sqlite3";
+import pkg from "pg";
+const { Pool } = pkg;
 import bcrypt from "bcryptjs";
 
 /* ===============================
@@ -31,7 +32,10 @@ const upload = multer({
 /* ===============================
    BANCO DE DADOS
    =============================== */
-const db = new Database("bq19.db");
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
+
 
 db.prepare(`
   CREATE TABLE IF NOT EXISTS users (
