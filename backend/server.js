@@ -49,10 +49,6 @@ const DEFAULT_PASSWORD = "BQ19@2026";
    ROTAS
    =============================== */
 
-app.get("/", (req, res) => {
-  res.send("API BQ19 ATIVA");
-});
-
 app.post("/admin/import-users", upload.single("file"), (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
@@ -61,9 +57,9 @@ app.post("/admin/import-users", upload.single("file"), (req, res) => {
 
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet);
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    if (!rows || rows.length === 0) {
+    if (!rawRows || rawRows.length === 0) {
       return res.status(400).json({ error: "Excel vazio ou inválido" });
     }
 
@@ -73,12 +69,24 @@ app.post("/admin/import-users", upload.single("file"), (req, res) => {
     );
 
     let created = 0;
+    let ignored = 0;
 
-    for (const r of rows) {
-      const cpf = String(r.CPF || "").trim();
-      const nome = String(r.Nome || "").trim();
+    rawRows.forEach((row) => {
+      // Normaliza cabeçalhos
+      const normalized = {};
+      Object.keys(row).forEach((k) => {
+        normalized[k.trim().toLowerCase()] = row[k];
+      });
 
-      if (!cpf || !nome) continue;
+      let cpf = String(normalized["cpf"] || "").replace(/\D/g, "").trim();
+      let nome = String(
+        normalized["nome"] || normalized["nome completo"] || ""
+      ).trim();
+
+      if (cpf.length !== 11 || !nome) {
+        ignored++;
+        return;
+      }
 
       if (!exists.get(cpf)) {
         insert.run(
@@ -88,44 +96,19 @@ app.post("/admin/import-users", upload.single("file"), (req, res) => {
         );
         created++;
       }
-    }
+    });
 
-    return res.json({ users_created: created });
+    return res.json({
+      users_created: created,
+      ignored_rows: ignored,
+      total_rows: rawRows.length
+    });
+
   } catch (err) {
     console.error("ERRO NO UPLOAD:", err);
     return res.status(500).json({
       error: "Erro interno ao processar o Excel"
     });
-  }
-});
-app.post("/login", (req, res) => {
-  try {
-    const { cpf, password } = req.body;
-
-    if (!cpf || !password) {
-      return res.status(400).json({ error: "CPF e senha obrigatórios" });
-    }
-
-    const user = db
-      .prepare("SELECT * FROM users WHERE cpf = ?")
-      .get(cpf);
-
-    if (!user) {
-      return res.status(401).json({ error: "CPF ou senha inválidos" });
-    }
-
-    const senhaOk = bcrypt.compareSync(password, user.password);
-
-    if (!senhaOk) {
-      return res.status(401).json({ error: "CPF ou senha inválidos" });
-    }
-
-    return res.json({
-      must_change_password: user.must_change_password === 1
-    });
-  } catch (err) {
-    console.error("ERRO NO LOGIN:", err);
-    return res.status(500).json({ error: "Erro interno no login" });
   }
 });
 
