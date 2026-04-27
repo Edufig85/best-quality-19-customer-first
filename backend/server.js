@@ -2,72 +2,71 @@ import express from "express";
 import cors from "cors";
 import multer from "multer";
 import * as XLSX from "xlsx";
-import pkg from "pg";
-const { Pool } = pkg;
 import bcrypt from "bcryptjs";
+import pkg from "pg";
+
+const { Pool } = pkg;
 
 /* ===============================
-   APP (PRIMEIRO DE TUDO)
+   APP
    =============================== */
 const app = express();
 
-await pool.query(`
-  CREATE TABLE IF NOT EXISTS users (
-    id SERIAL PRIMARY KEY,
-    cpf TEXT UNIQUE,
-    nome TEXT,
-    password TEXT,
-    must_change_password BOOLEAN DEFAULT true
-  );
-`);
-
 /* ===============================
-   MIDDLEWARE
+   CORS + JSON
    =============================== */
 app.use(cors({
   origin: "https://best-quality-19-customer-first.vercel.app",
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"],
+  allowedHeaders: ["Content-Type"]
 }));
 
 app.use(express.json());
 
 /* ===============================
-   MULTER (MEMÓRIA)
-   =============================== */
-const upload = multer({
-  storage: multer.memoryStorage(),
-});
-
-/* ===============================
-   BANCO DE DADOS
+   POSTGRES (NEON)
    =============================== */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
+  ssl: { rejectUnauthorized: false }
 });
 
+/* ===============================
+   BANCO (INIT)
+   =============================== */
+async function initDB() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      cpf TEXT UNIQUE NOT NULL,
+      nome TEXT NOT NULL,
+      password TEXT NOT NULL,
+      must_change_password BOOLEAN DEFAULT TRUE
+    )
+  `);
+}
+initDB();
 
-db.prepare(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    cpf TEXT UNIQUE,
-    nome TEXT,
-    password TEXT,
-    must_change_password INTEGER DEFAULT 1
-  )
-`).run();
+/* ===============================
+   MULTER (MEMÓRIA)
+   =============================== */
+const upload = multer({
+  storage: multer.memoryStorage()
+});
 
 const DEFAULT_PASSWORD = "BQ19@2026";
 
 /* ===============================
-   ROTAS
+   HEALTH CHECK
    =============================== */
-
 app.get("/", (req, res) => {
-  res.send("API BQ19 ATIVA");
+  res.send("API BQ19 ATIVA (POSTGRES)");
 });
 
-app.post("/admin/import-users", upload.single("file"), (req, res) => {
+/* ===============================
+   IMPORTAÇÃO DE USUÁRIOS (EXCEL)
+   =============================== */
+app.post("/admin/import-users", upload.single("file"), async (req, res) => {
   try {
     if (!req.file || !req.file.buffer) {
       return res.status(400).json({ error: "Arquivo não recebido" });
@@ -77,30 +76,38 @@ app.post("/admin/import-users", upload.single("file"), (req, res) => {
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    const exists = db.prepare("SELECT id FROM users WHERE cpf = ?");
-    const insert = db.prepare(
-      "INSERT INTO users (cpf, nome, password) VALUES (?, ?, ?)"
-    );
-
     let created = 0;
 
-    rows.forEach((row) => {
-      const cpf = String(row.CPF || row.cpf || "")
+    for (const row of rows) {
+      const normalized = {};
+      Object.keys(row).forEach(k => {
+        normalized[k.trim().toLowerCase()] = row[k];
+      });
+
+      const cpf = String(normalized.cpf || "")
         .replace(/\D/g, "")
         .trim();
-      const nome = String(row.Nome || row.nome || "").trim();
 
-      if (cpf.length === 11 && nome) {
-        if (!exists.get(cpf)) {
-          insert.run(
-            cpf,
-            nome,
-            bcrypt.hashSync(DEFAULT_PASSWORD, 10)
-          );
-          created++;
-        }
+      const nome = String(
+        normalized.nome || normalized["nome completo"] || ""
+      ).trim();
+
+      if (cpf.length !== 11 || !nome) continue;
+
+      const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
+
+      try {
+        await pool.query(
+          `INSERT INTO users (cpf, nome, password)
+           VALUES ($1, $2, $3)
+           ON CONFLICT (cpf) DO NOTHING`,
+          [cpf, nome, hash]
+        );
+        created++;
+      } catch {
+        // ignora duplicados
       }
-    });
+    }
 
     res.json({ users_created: created });
   } catch (err) {
@@ -109,26 +116,39 @@ app.post("/admin/import-users", upload.single("file"), (req, res) => {
   }
 });
 
-app.post("/login", (req, res) => {
+/* ===============================
+   LOGIN
+   =============================== */
+app.post("/login", async (req, res) => {
   try {
     let { cpf, password } = req.body;
 
     cpf = String(cpf || "").replace(/\D/g, "").trim();
+    if (cpf.length !== 11 || !password) {
+      return res.status(401).json({ error: "CPF ou senha inválidos" });
+    }
 
-    const user = db
-      .prepare("SELECT * FROM users WHERE cpf = ?")
-      .get(cpf);
+    const result = await pool.query(
+      "SELECT * FROM users WHERE cpf = $1",
+      [cpf]
+    );
 
-    if (!user || !bcrypt.compareSync(password, user.password)) {
+    const user = result.rows[0];
+    if (!user) {
+      return res.status(401).json({ error: "CPF ou senha inválidos" });
+    }
+
+    const senhaOk = bcrypt.compareSync(password, user.password);
+    if (!senhaOk) {
       return res.status(401).json({ error: "CPF ou senha inválidos" });
     }
 
     res.json({
-      must_change_password: user.must_change_password === 1,
+      must_change_password: user.must_change_password
     });
   } catch (err) {
     console.error("ERRO LOGIN:", err);
-    res.status(500).json({ error: "Erro interno" });
+    res.status(500).json({ error: "Erro interno no login" });
   }
 });
 
@@ -137,5 +157,5 @@ app.post("/login", (req, res) => {
    =============================== */
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log("Backend BQ19 rodando na porta", PORT);
+  console.log("Backend BQ19 rodando com PostgreSQL na porta", PORT);
 });
