@@ -98,6 +98,36 @@ app.post("/admin/import-users", upload.single("file"), (req, res) => {
     });
   }
 });
+app.post("/login", (req, res) => {
+  try {
+    const { cpf, password } = req.body;
+
+    if (!cpf || !password) {
+      return res.status(400).json({ error: "CPF e senha obrigatórios" });
+    }
+
+    const user = db
+      .prepare("SELECT * FROM users WHERE cpf = ?")
+      .get(cpf);
+
+    if (!user) {
+      return res.status(401).json({ error: "CPF ou senha inválidos" });
+    }
+
+    const senhaOk = bcrypt.compareSync(password, user.password);
+
+    if (!senhaOk) {
+      return res.status(401).json({ error: "CPF ou senha inválidos" });
+    }
+
+    return res.json({
+      must_change_password: user.must_change_password === 1
+    });
+  } catch (err) {
+    console.error("ERRO NO LOGIN:", err);
+    return res.status(500).json({ error: "Erro interno no login" });
+  }
+});
 
 /* ===============================
    START
