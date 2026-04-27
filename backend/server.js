@@ -18,7 +18,7 @@ const app = express();
 app.use(cors({
   origin: "https://best-quality-19-customer-first.vercel.app",
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
+  allowedHeaders: ["Content-Type"],
 }));
 
 app.use(express.json());
@@ -28,11 +28,11 @@ app.use(express.json());
    =============================== */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
 
 /* ===============================
-   BANCO (INIT)
+   INIT DB
    =============================== */
 async function initDB() {
   await pool.query(`
@@ -51,7 +51,7 @@ initDB();
    MULTER (MEMÓRIA)
    =============================== */
 const upload = multer({
-  storage: multer.memoryStorage()
+  storage: multer.memoryStorage(),
 });
 
 const DEFAULT_PASSWORD = "BQ19@2026";
@@ -77,39 +77,53 @@ app.post("/admin/import-users", upload.single("file"), async (req, res) => {
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
     let created = 0;
+    let ignored = 0;
 
     for (const row of rows) {
+      // normaliza cabeçalhos
       const normalized = {};
       Object.keys(row).forEach(k => {
         normalized[k.trim().toLowerCase()] = row[k];
       });
 
-      const cpf = String(normalized.cpf || "")
-        .replace(/\D/g, "")
-        .trim();
+      const cpf = String(
+        normalized.cpf ||
+        normalized["cpf participante"] ||
+        ""
+      ).replace(/\D/g, "").trim();
 
       const nome = String(
-        normalized.nome || normalized["nome completo"] || ""
+        normalized.nome ||
+        normalized["nome completo"] ||
+        ""
       ).trim();
 
-      if (cpf.length !== 11 || !nome) continue;
+      if (cpf.length !== 11 || !nome) {
+        ignored++;
+        continue;
+      }
 
       const hash = bcrypt.hashSync(DEFAULT_PASSWORD, 10);
 
-      try {
-        await pool.query(
-          `INSERT INTO users (cpf, nome, password)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (cpf) DO NOTHING`,
-          [cpf, nome, hash]
-        );
+      const result = await pool.query(
+        `INSERT INTO users (cpf, nome, password)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (cpf) DO NOTHING
+         RETURNING id`,
+        [cpf, nome, hash]
+      );
+
+      if (result.rowCount === 1) {
         created++;
-      } catch {
-        // ignora duplicados
       }
     }
 
-    res.json({ users_created: created });
+    res.json({
+      users_created: created,
+      ignored_rows: ignored,
+      total_rows: rows.length,
+    });
+
   } catch (err) {
     console.error("ERRO IMPORT:", err);
     res.status(500).json({ error: "Erro ao importar usuários" });
@@ -139,23 +153,3 @@ app.post("/login", async (req, res) => {
     }
 
     const senhaOk = bcrypt.compareSync(password, user.password);
-    if (!senhaOk) {
-      return res.status(401).json({ error: "CPF ou senha inválidos" });
-    }
-
-    res.json({
-      must_change_password: user.must_change_password
-    });
-  } catch (err) {
-    console.error("ERRO LOGIN:", err);
-    res.status(500).json({ error: "Erro interno no login" });
-  }
-});
-
-/* ===============================
-   START
-   =============================== */
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log("Backend BQ19 rodando com PostgreSQL na porta", PORT);
-});
