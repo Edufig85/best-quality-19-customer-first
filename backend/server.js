@@ -49,66 +49,34 @@ const DEFAULT_PASSWORD = "BQ19@2026";
    ROTAS
    =============================== */
 
-app.post("/admin/import-users", upload.single("file"), (req, res) => {
+app.post("/login", (req, res) => {
   try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: "Arquivo não recebido" });
+    const { cpf, password } = req.body;
+
+    if (!cpf || !password) {
+      return res.status(400).json({ error: "CPF e senha obrigatórios" });
     }
 
-    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const user = db
+      .prepare("SELECT * FROM users WHERE cpf = ?")
+      .get(cpf);
 
-    if (!rawRows || rawRows.length === 0) {
-      return res.status(400).json({ error: "Excel vazio ou inválido" });
+    if (!user) {
+      return res.status(401).json({ error: "CPF ou senha inválidos" });
     }
 
-    const exists = db.prepare("SELECT id FROM users WHERE cpf = ?");
-    const insert = db.prepare(
-      "INSERT INTO users (cpf, nome, password) VALUES (?, ?, ?)"
-    );
+    const senhaOk = bcrypt.compareSync(password, user.password);
 
-    let created = 0;
-    let ignored = 0;
-
-    rawRows.forEach((row) => {
-      // Normaliza cabeçalhos
-      const normalized = {};
-      Object.keys(row).forEach((k) => {
-        normalized[k.trim().toLowerCase()] = row[k];
-      });
-
-      let cpf = String(normalized["cpf"] || "").replace(/\D/g, "").trim();
-      let nome = String(
-        normalized["nome"] || normalized["nome completo"] || ""
-      ).trim();
-
-      if (cpf.length !== 11 || !nome) {
-        ignored++;
-        return;
-      }
-
-      if (!exists.get(cpf)) {
-        insert.run(
-          cpf,
-          nome,
-          bcrypt.hashSync(DEFAULT_PASSWORD, 10)
-        );
-        created++;
-      }
-    });
+    if (!senhaOk) {
+      return res.status(401).json({ error: "CPF ou senha inválidos" });
+    }
 
     return res.json({
-      users_created: created,
-      ignored_rows: ignored,
-      total_rows: rawRows.length
+      must_change_password: user.must_change_password === 1
     });
-
   } catch (err) {
-    console.error("ERRO NO UPLOAD:", err);
-    return res.status(500).json({
-      error: "Erro interno ao processar o Excel"
-    });
+    console.error("ERRO NO LOGIN:", err);
+    return res.status(500).json({ error: "Erro interno no login" });
   }
 });
 /* ===============================
