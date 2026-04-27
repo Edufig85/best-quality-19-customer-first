@@ -22,25 +22,35 @@ export default function AdminPainel() {
       );
 
       if (!res.ok) {
-        const t = await res.text();
-        setMsg("Erro: " + t);
+        const text = await res.text();
+        setMsg("Erro do backend: " + text);
         return;
       }
 
       const json = await res.json();
       setMsg(`Upload concluído. Usuários criados: ${json.users_created}`);
-    } catch {
-      setMsg("Erro ao enviar arquivo");
+    } catch (error) {
+      console.error(error);
+      setMsg("Erro ao enviar o arquivo");
     }
   };
 
   return (
-    <div>
+    <div style={{ padding: 40 }}>
       <h1>Painel Admin – Best Quality 19</h1>
-      <input type="file" accept=".xlsx" onChange={e => setFile(e.target.files[0])} />
-      <br /><br />
+
+      <input
+        type="file"
+        accept=".xlsx"
+        onChange={(e) => setFile(e.target.files[0])}
+      />
+
+      <br />
+      <br />
+
       <button onClick={uploadUsuarios}>Enviar Excel</button>
-      <p>{msg}</p>
+
+      <p style={{ marginTop: 20 }}>{msg}</p>
     </div>
   );
 }
