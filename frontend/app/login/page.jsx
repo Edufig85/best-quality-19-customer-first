@@ -3,6 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+localStorage.setItem("logged", "true");
+localStorage.setItem("cpf", cpf);
+localStorage.setItem("userName", data.nome);
+
+
 export default function Login() {
   const router = useRouter();
 
