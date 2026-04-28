@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import useAuthGuard from "../hooks/useAuthGuard";
+import useAuthGuard from "../../hooks/useAuthGuard";
 
 export default function Categorias() {
   useAuthGuard();
