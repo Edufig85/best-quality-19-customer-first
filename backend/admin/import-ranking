@@ -1,0 +1,38 @@
+// Limpa badges do período
+await pool.query(
+  "DELETE FROM user_badges WHERE ano=$1 AND mes=$2",
+  [ano, mes]
+);
+
+// Pega top 5 por categoria
+const categorias = await pool.query(
+  "SELECT DISTINCT categoria FROM ranking_results"
+);
+
+for (const c of categorias.rows) {
+  const top = await pool.query(
+    `
+    SELECT cpf
+    FROM ranking_results
+    WHERE categoria=$1 AND ano=$2 AND mes=$3
+    ORDER BY pontos DESC
+    LIMIT 5
+    `,
+    [c.categoria, ano, mes]
+  );
+
+  for (let i = 0; i < top.rows.length; i++) {
+    let badge = null;
+    if (i === 0) badge = "Diamante";
+    else if (i <= 2) badge = "Ouro";
+    else badge = "Bronze";
+
+    await pool.query(
+      `
+      INSERT INTO user_badges (cpf, categoria, badge, ano, mes)
+      VALUES ($1,$2,$3,$4,$5)
+      `,
+      [top.rows[i].cpf, c.categoria, badge, ano, mes]
+    );
+  }
+}
