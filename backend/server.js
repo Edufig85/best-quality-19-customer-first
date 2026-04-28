@@ -8,31 +8,22 @@ import pkg from "pg";
 const { Pool } = pkg;
 const app = express();
 
-/* ===================== MIDDLEWARE ===================== */
+/* ================= MIDDLEWARE ================= */
 app.use(cors({
   origin: "https://best-quality-19-customer-first.vercel.app",
   methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"],
+  allowedHeaders: ["Content-Type"]
 }));
 app.use(express.json());
 
-/* ===================== DATABASE ===================== */
+/* ================= DATABASE ================= */
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
+  ssl: { rejectUnauthorized: false }
 });
 
-async function initDB()
-CREATE TABLE IF NOT EXISTS user_badges (
-  id SERIAL PRIMARY KEY,
-  cpf TEXT,
-  categoria TEXT,
-  badge TEXT,
-  ano INTEGER,
-  mes INTEGER,
-  created_at TIMESTAMP DEFAULT NOW()
-);
-{
+/* ================= INIT TABLES ================= */
+async function initDB() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
@@ -55,19 +46,31 @@ CREATE TABLE IF NOT EXISTS user_badges (
       created_at TIMESTAMP DEFAULT NOW()
     );
   `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_badges (
+      id SERIAL PRIMARY KEY,
+      cpf TEXT,
+      categoria TEXT,
+      badge TEXT,
+      ano INTEGER,
+      mes INTEGER,
+      created_at TIMESTAMP DEFAULT NOW()
+    );
+  `);
 }
 initDB();
 
-/* ===================== LOGIN ===================== */
+/* ================= LOGIN ================= */
 app.post("/login", async (req, res) => {
   let { cpf, password } = req.body;
   cpf = String(cpf || "").replace(/\D/g, "");
 
-  const result = await pool.query(
+  const r = await pool.query(
     "SELECT cpf, nome, password, must_change_password FROM users WHERE cpf=$1",
     [cpf]
   );
-  const user = result.rows[0];
+  const user = r.rows[0];
 
   if (!user || !bcrypt.compareSync(password, user.password)) {
     return res.status(401).json({ error: "CPF ou senha inválidos" });
@@ -79,7 +82,7 @@ app.post("/login", async (req, res) => {
   });
 });
 
-/* ===================== CHANGE PASSWORD ===================== */
+/* ================= TROCAR SENHA ================= */
 app.post("/change-password", async (req, res) => {
   const { cpf, newPassword } = req.body;
   const hash = bcrypt.hashSync(newPassword, 10);
@@ -91,7 +94,7 @@ app.post("/change-password", async (req, res) => {
   res.json({ ok: true });
 });
 
-/* ===================== ADMIN UPLOAD RANKING ===================== */
+/* ================= ADMIN: UPLOAD RANKING ================= */
 const upload = multer({ storage: multer.memoryStorage() });
 
 app.post("/admin/import-ranking", upload.single("file"), async (req, res) => {
@@ -99,11 +102,15 @@ app.post("/admin/import-ranking", upload.single("file"), async (req, res) => {
   const sheet = workbook.Sheets["Resultado"];
   const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-  const agora = new Date();
-  const ano = agora.getFullYear();
-  const mes = agora.getMonth() + 1;
+  const now = new Date();
+  const ano = now.getFullYear();
+  const mes = now.getMonth() + 1;
 
   await pool.query("DELETE FROM ranking_results");
+  await pool.query(
+    "DELETE FROM user_badges WHERE ano=$1 AND mes=$2",
+    [ano, mes]
+  );
 
   for (const r of rows) {
     await pool.query(
@@ -120,10 +127,43 @@ app.post("/admin/import-ranking", upload.single("file"), async (req, res) => {
     );
   }
 
+  // ===== CALCULAR BADGES =====
+  const categorias = await pool.query(
+    "SELECT DISTINCT categoria FROM ranking_results"
+  );
+
+  for (const c of categorias.rows) {
+    const top = await pool.query(
+      `
+      SELECT cpf
+      FROM ranking_results
+      WHERE categoria=$1 AND ano=$2 AND mes=$3
+      ORDER BY pontos DESC
+      LIMIT 5
+      `,
+      [c.categoria, ano, mes]
+    );
+
+    for (let i = 0; i < top.rows.length; i++) {
+      let badge = null;
+      if (i === 0) badge = "Diamante";
+      else if (i <= 2) badge = "Ouro";
+      else badge = "Bronze";
+
+      await pool.query(
+        `
+        INSERT INTO user_badges (cpf, categoria, badge, ano, mes)
+        VALUES ($1,$2,$3,$4,$5)
+        `,
+        [top.rows[i].cpf, c.categoria, badge, ano, mes]
+      );
+    }
+  }
+
   res.json({ ok: true });
 });
 
-/* ===================== CATEGORIAS ===================== */
+/* ================= CATEGORIAS ================= */
 app.get("/ranking/categorias", async (_, res) => {
   const r = await pool.query(
     "SELECT DISTINCT categoria FROM ranking_results ORDER BY categoria"
@@ -131,29 +171,21 @@ app.get("/ranking/categorias", async (_, res) => {
   res.json(r.rows.map(x => x.categoria));
 });
 
-/* ===================== RANKING ===================== */
+/* ================= RANKING ================= */
 app.get("/ranking/:categoria", async (req, res) => {
   const { categoria } = req.params;
   const { ano, mes } = req.query;
 
-  const r = await pool.query(`
+  const r = await pool.query(
+    `
     SELECT nome, pontos
     FROM ranking_results
     WHERE categoria=$1
       AND ($2::int IS NULL OR ano=$2)
       AND ($3::int IS NULL OR mes=$3)
     ORDER BY pontos DESC
-  `, [categoria, ano || null, mes || null]);
+    `,
+    [categoria, ano || null, mes || null]
+  );
 
   res.json(
-    r.rows.map((row, i) => ({
-      posicao: i + 1,
-      nome: row.nome,
-      pontos: row.pontos
-    }))
-  );
-});
-
-/* ===================== START ===================== */
-app.listen(process.env.PORT || 3001);
-``
