@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+const router = useRouter();
 
 export default function Login() {
   const [cpf, setCpf] = useState("");
