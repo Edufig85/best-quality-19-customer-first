@@ -2,48 +2,43 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-const router = useRouter();
+
 
 export default function Login() {
   const [cpf, setCpf] = useState("");
   const [password, setPassword] = useState("");
   const [msg, setMsg] = useState("");
+  const router = useRouter();
 
-  const realizarLogin = async () => {
-    if (!cpf || !password) {
-      setMsg("Preencha CPF e senha");
+const realizarLogin = async () => {
+  try {
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/login`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cpf, password })
+      }
+    );
+
+    const data = await res.json();
+
+    if (!res.ok) {
+      setMsg(data.error || "CPF ou senha inválidos");
       return;
     }
 
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/login`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cpf, password })
-        }
-      );
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMsg(data.error || "CPF ou senha inválidos");
-        return;
-      }
-
-      
-if (data.must_change_password) {
-  localStorage.setItem("cpf", cpf);
-  router.push("/change-password");
-}
- else {
-        setMsg("Login realizado com sucesso!");
-      }
-    } catch (e) {
-      setMsg("Erro ao conectar com o servidor");
+    if (data.must_change_password) {
+      localStorage.setItem("cpf", cpf);
+      router.push("/change-password");
+      return;
     }
-  };
+
+    setMsg("Login realizado com sucesso!");
+  } catch {
+    setMsg("Erro ao conectar com o servidor");
+  }
+};
 
   return (
     <div style={{ padding: 40 }}>
