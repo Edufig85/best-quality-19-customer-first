@@ -1,90 +1,106 @@
 "use client";
 
-import { useState } from "react";
-import useAuthGuard from "../../hooks/useAuthGuard";
+import {AuthGuard";import { useState } from "react";
 
 export default function PainelAdmin() {
   useAuthGuard();
 
   const [usersFile, setUsersFile] = useState(null);
   const [rankingFile, setRankingFile] = useState(null);
+
   const [msgUsers, setMsgUsers] = useState("");
   const [msgRanking, setMsgRanking] = useState("");
 
-  /* =====================
-     UPLOAD DE USUÁRIOS
-  ====================== */
   const enviarUsuarios = async () => {
-  if (!usersFile) {
-    setMsgUsers("Selecione um arquivo de usuários");
-    return;
-  }
-
-  setMsgUsers("Enviando usuários...");
-
-  const formData = new FormData();
-  formData.append("file", usersFile);
-
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/admin/import-users`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setMsgUsers(data.error || "Erro ao importar usuários");
+    if (!usersFile) {
+      setMsgUsers("Selecione um arquivo de usuários");
       return;
     }
 
-    setMsgUsers(`Usuários criados: ${data.users_created}`);
-  } catch (err) {
-    console.error(err);
-    setMsgUsers("Erro de conexão com o servidor");
-  }
-};
+    setMsgUsers("Enviando usuários...");
 
-  /* =====================
-     UPLOAD DE RANKING
-  ====================== */
+    const formData = new FormData();
+    formData.append("file", usersFile);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/import-users`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMsgUsers(data.error || "Erro ao importar usuários");
+        return;
+      }
+
+      setMsgUsers(`Usuários criados: ${data.users_created}`);
+    } catch (err) {
+      console.error(err);
+      setMsgUsers("Erro de conexão com o servidor");
+    }
+  };
+
   const enviarRanking = async () => {
-  if (!rankingFile) {
-    setMsgRanking("Selecione um arquivo de ranking");
-    return;
-  }
-
-  setMsgRanking("Enviando ranking...");
-
-  const formData = new FormData();
-  formData.append("file", rankingFile);
-
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/admin/import-ranking`,
-      {
-        method: "POST",
-        body: formData,
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setMsgRanking(data.error || "Erro ao importar ranking");
+    if (!rankingFile) {
+      setMsgRanking("Selecione um arquivo de ranking");
       return;
     }
 
-    setMsgRanking("Ranking importado com sucesso ✅");
-  } catch (err) {
-    console.error(err);
-    setMsgRanking("Erro de conexão com o servidor");
-  }
-};
-      {/* ===================== RANKING ===================== */}
+    setMsgRanking("Enviando ranking...");
+
+    const formData = new FormData();
+    formData.append("file", rankingFile);
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/admin/import-ranking`,
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMsgRanking(data.error || "Erro ao importar ranking");
+        return;
+      }
+
+      setMsgRanking("Ranking importado com sucesso ✅");
+    } catch (err) {
+      console.error(err);
+      setMsgRanking("Erro de conexão com o servidor");
+    }
+  };
+
+  return (
+    <div style={{ padding: 40, maxWidth: 600 }}>
+      <h1>🛠 Painel Administrativo</h1>
+
+      <section style={styles.box}>
+        <h2>📁 Importação de Usuários</h2>
+
+        <input
+          type="file"
+          accept=".xls,.xlsx"
+          onChange={(e) => setUsersFile(e.target.files[0])}
+        />
+
+        <br /><br />
+
+        <button onClick={enviarUsuarios}>
+          Enviar usuários
+        </button>
+
+        <p>{msgUsers}</p>
+      </section>
+
       <section style={styles.box}>
         <h2>🏆 Importação de Ranking</h2>
 
@@ -105,8 +121,6 @@ export default function PainelAdmin() {
     </div>
   );
 }
-
-/* ===================== ESTILO ===================== */
 
 const styles = {
   box: {
