@@ -3,11 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-localStorage.setItem("logged", "true");
-localStorage.setItem("cpf", cpf);
-localStorage.setItem("userName", data.nome);
-
-
 export default function Login() {
   const router = useRouter();
 
@@ -16,18 +11,13 @@ export default function Login() {
   const [msg, setMsg] = useState("");
 
   const realizarLogin = async () => {
-    if (!cpf || !password) {
-      setMsg("Preencha CPF e senha");
-      return;
-    }
-
     try {
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/login`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cpf, password })
+          body: JSON.stringify({ cpf, password }),
         }
       );
 
@@ -38,29 +28,31 @@ export default function Login() {
         return;
       }
 
-      // ✅ Troca obrigatória de senha
-      if (data.must_change_password) {
+      // ✅ A PARTIR DAQUI É 100% CLIENT-SIDE
+      if (typeof window !== "undefined") {
+        localStorage.setItem("logged", "true");
         localStorage.setItem("cpf", cpf);
+        localStorage.setItem("userName", data.nome);
+      }
+
+      if (data.must_change_password) {
         router.push("/change-password");
         return;
       }
 
-      // ✅ Login normal (caso futuro)
-      localStorage.setItem("logged", "true");
-router.push("/");
-``
-    } catch (e) {
+      router.push("/categorias");
+    } catch {
       setMsg("Erro ao conectar com o servidor");
     }
   };
 
   return (
     <div style={{ padding: 40 }}>
-      <h1>Login – Best Quality 19</h1>
+      <h1>Login</h1>
 
       <input
         type="text"
-        placeholder="CPF (somente números)"
+        placeholder="CPF"
         value={cpf}
         onChange={(e) => setCpf(e.target.value)}
       />
@@ -80,8 +72,7 @@ router.push("/");
         Entrar
       </button>
 
-      <p style={{ marginTop: 20 }}>{msg}</p>
+      <p>{msg}</p>
     </div>
   );
 }
-``
