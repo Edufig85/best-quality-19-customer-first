@@ -1,31 +1,57 @@
 "use client";
+
 import { useEffect, useState } from "react";
-import useAuthGuard from "../../hooks/useAuthGuard";
 import { useRouter } from "next/navigation";
-{me && <div>🏅 {badge}</div>}
+import useAuthGuard from "../hooks/useAuthGuard";
+
 export default function Categorias() {
   useAuthGuard();
   const router = useRouter();
-  const [cats, setCats] = useState([]);
+  const [categorias, setCategorias] = useState([]);
+  const [msg, setMsg] = useState("Carregando categorias...");
 
   useEffect(() => {
-    fetch(`${process.env.NEXT_PUBLIC_API_URL}/ranking/categorias`)
-      .then(r => r.json())
-      .then(setCats);
+    const carregar = async () => {
+      try {
+        const res = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/ranking/categorias`
+        );
+        const data = await res.json();
+        setCategorias(data);
+        setMsg("");
+      } catch {
+        setMsg("Erro ao carregar categorias");
+      }
+    };
+
+    carregar();
   }, []);
 
   return (
     <div style={{ padding: 40 }}>
-      <h1>Categorias</h1>
-      {cats.map(c => (
+      <h1>🏆 Categorias</h1>
+
+      {msg && <p>{msg}</p>}
+
+      {categorias.map((cat) => (
         <div
-          key={c}
-          style={{ padding: 15, cursor: "pointer" }}
-          onClick={() => router.push(`/ranking/${encodeURIComponent(c)}`)}
+          key={cat}
+          style={{
+            padding: 16,
+            marginTop: 12,
+            border: "1px solid #ddd",
+            borderRadius: 8,
+            cursor: "pointer",
+            background: "#fafafa",
+          }}
+          onClick={() =>
+            router.push(`/ranking/${encodeURIComponent(cat)}`)
+          }
         >
-          🏆 {c}
+          {cat}
         </div>
       ))}
     </div>
   );
 }
+``
