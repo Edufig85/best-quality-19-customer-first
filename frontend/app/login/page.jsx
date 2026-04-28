@@ -1,73 +1,94 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-
-export default function Login() {
-  const [cpf, setCpf] = useState("");
-  const [password, setPassword] = useState("");
-  const [msg, setMsg] = useState("");
+export default function ChangePassword() {
   const router = useRouter();
 
-const realizarLogin = async () => {
-  try {
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/login`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ cpf, password })
+  const [cpf, setCpf] = useState("");
+  const [senha1, setSenha1] = useState("");
+  const [senha2, setSenha2] = useState("");
+  const [msg, setMsg] = useState("");
+
+  useEffect(() => {
+    const savedCpf = localStorage.getItem("cpf");
+    if (!savedCpf) {
+      router.push("/login");
+    } else {
+      setCpf(savedCpf);
+    }
+  }, [router]);
+
+  const trocarSenha = async () => {
+    if (senha1.length < 6) {
+      setMsg("A senha deve ter pelo menos 6 caracteres");
+      return;
+    }
+
+    if (senha1 !== senha2) {
+      setMsg("As senhas não conferem");
+      return;
+    }
+
+    try {
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/change-password`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            cpf,
+            newPassword: senha1,
+          }),
+        }
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setMsg(data.error || "Erro ao trocar senha");
+        return;
       }
-    );
 
-    const data = await res.json();
+      localStorage.removeItem("cpf");
+      setMsg("Senha alterada com sucesso!");
 
-    if (!res.ok) {
-      setMsg(data.error || "CPF ou senha inválidos");
-      return;
+      setTimeout(() => {
+        router.push("/login");
+      }, 1200);
+    } catch {
+      setMsg("Erro de conexão com o servidor");
     }
-
-    if (data.must_change_password) {
-      localStorage.setItem("cpf", cpf);
-      router.push("/change-password");
-      return;
-    }
-
-    setMsg("Login realizado com sucesso!");
-  } catch {
-    setMsg("Erro ao conectar com o servidor");
-  }
-};
+  };
 
   return (
     <div style={{ padding: 40 }}>
-      <h1>Login – Best Quality 19</h1>
+      <h1>Troca obrigatória de senha</h1>
 
       <input
-        type="text"
-        placeholder="CPF (somente números)"
-        value={cpf}
-        onChange={(e) => setCpf(e.target.value)}
+        type="password"
+        placeholder="Nova senha"
+        value={senha1}
+        onChange={(e) => setSenha1(e.target.value)}
       />
 
       <br /><br />
 
       <input
         type="password"
-        placeholder="Senha"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        placeholder="Confirmar nova senha"
+        value={senha2}
+        onChange={(e) => setSenha2(e.target.value)}
       />
 
       <br /><br />
 
-      <button onClick={realizarLogin}>
-        Entrar
+      <button onClick={trocarSenha}>
+        Alterar senha
       </button>
 
       <p style={{ marginTop: 20 }}>{msg}</p>
     </div>
   );
 }
-``
