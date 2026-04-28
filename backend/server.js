@@ -22,7 +22,17 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false },
 });
 
-async function initDB() {
+async function initDB()
+CREATE TABLE IF NOT EXISTS user_badges (
+  id SERIAL PRIMARY KEY,
+  cpf TEXT,
+  categoria TEXT,
+  badge TEXT,
+  ano INTEGER,
+  mes INTEGER,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+{
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
