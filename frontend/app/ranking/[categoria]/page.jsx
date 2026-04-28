@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import useAuthGuard from "../hooks/useAuthGuard";
+import useAuthGuard from "../../hooks/useAuthGuard";
 import { useRouter } from "next/navigation";
 {me && <div>🏅 {badge}</div>}
 export default function Categorias() {
