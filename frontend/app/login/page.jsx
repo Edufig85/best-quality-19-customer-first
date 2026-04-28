@@ -41,8 +41,9 @@ export default function Login() {
       }
 
       // ✅ Login normal (caso futuro)
-      setMsg("Login realizado com sucesso");
-      router.push("/");
+      localStorage.setItem("logged", "true");
+router.push("/");
+``
     } catch (e) {
       setMsg("Erro ao conectar com o servidor");
     }
