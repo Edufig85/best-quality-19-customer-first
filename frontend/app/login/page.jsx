@@ -30,9 +30,12 @@ export default function Login() {
         return;
       }
 
-      if (data.must_change_password) {
-        setMsg("Login OK. Troca de senha obrigatória (próximo passo).");
-      } else {
+      
+if (data.must_change_password) {
+  localStorage.setItem("cpf", cpf);
+  router.push("/change-password");
+}
+ else {
         setMsg("Login realizado com sucesso!");
       }
     } catch (e) {
