@@ -189,3 +189,64 @@ app.get("/ranking/:categoria", async (req, res) => {
   );
 
   res.json(
+    r.rows.map((row, i) => ({
+      posicao: i + 1,
+      nome: row.nome,
+      pontos: row.pontos
+    }))
+  );
+});
+
+/* ================= BADGES DO USUÁRIO ================= */
+app.get("/badges/:cpf", async (req, res) => {
+  const { cpf } = req.params;
+
+  const r = await pool.query(
+    `
+    SELECT categoria, badge, ano, mes
+    FROM user_badges
+    WHERE cpf=$1
+    ORDER BY ano DESC, mes DESC
+    `,
+    [cpf]
+  );
+
+  res.json(r.rows);
+});
+
+/* ================= DASHBOARD ================= */
+app.get("/admin/dashboard/overview", async (_, res) => {
+  const u = await pool.query("SELECT COUNT(*) FROM users");
+  const p = await pool.query("SELECT COUNT(DISTINCT cpf) FROM ranking_results");
+  const c = await pool.query("SELECT COUNT(DISTINCT categoria) FROM ranking_results");
+
+  res.json({
+    usuarios: u.rows[0].count,
+    participantes: p.rows[0].count,
+    categorias: c.rows[0].count
+  });
+});
+
+app.get("/admin/dashboard/badges", async (_, res) => {
+  const r = await pool.query(
+    "SELECT badge, COUNT(*) total FROM user_badges GROUP BY badge"
+  );
+  res.json(r.rows);
+});
+
+app.get("/admin/dashboard/por-mes", async (_, res) => {
+  const r = await pool.query(
+    `
+    SELECT ano, mes, COUNT(DISTINCT cpf) participantes
+    FROM ranking_results
+    GROUP BY ano, mes
+    ORDER BY ano, mes
+    `
+  );
+  res.json(r.rows);
+});
+
+/* ================= START ================= */
+app.listen(process.env.PORT || 3001, () =>
+  console.log("API BQ19 rodando (Ranking + Gamificação + Dashboard)")
+);
