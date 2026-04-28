@@ -136,3 +136,34 @@ app.listen(PORT, () => {
   console.log("API rodando na porta", PORT);
 });
 ``
+app.post("/change-password", async (req, res) => {
+  try {
+    let { cpf, newPassword } = req.body;
+
+    cpf = String(cpf || "").replace(/\D/g, "").trim();
+
+    if (!cpf || cpf.length !== 11 || !newPassword || newPassword.length < 6) {
+      return res.status(400).json({
+        error: "Senha deve ter pelo menos 6 caracteres"
+      });
+    }
+
+    const hash = bcrypt.hashSync(newPassword, 10);
+
+    const result = await pool.query(
+      `UPDATE users
+       SET password = $1, must_change_password = FALSE
+       WHERE cpf = $2`,
+      [hash, cpf]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Usuário não encontrado" });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("ERRO CHANGE PASSWORD:", err);
+    res.status(500).json({ error: "Erro ao trocar senha" });
+  }
+});
