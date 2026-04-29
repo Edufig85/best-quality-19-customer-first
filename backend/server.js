@@ -297,3 +297,8 @@ app.post("/import-users", upload.single("file"), async (req, res) => {
 app.listen(process.env.PORT || 3001, () =>
   console.log("API BQ19 rodando (Ranking + Gamificação + Dashboard)")
 );
+const PORT = process.env.PORT || 3001;
+
+app.listen(PORT, () => {
+  console.log("API BQ19 ATIVA NA PORTA", PORT);
+});
