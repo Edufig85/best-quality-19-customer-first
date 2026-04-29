@@ -7,6 +7,7 @@ import pkg from "pg";
 
 const { Pool } = pkg;
 const app = express();
+const upload = multer({ storage: multer.memoryStorage() });
 
 /* ================= MIDDLEWARE ================= */
 
@@ -253,7 +254,45 @@ app.get("/admin/dashboard/por-mes", async (_, res) => {
 app.get("/", (req, res) => {
   res.send("API BQ19 ATIVA");
 });
+app.post("/import-users", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "Arquivo não enviado" });
+    }
 
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    let created = 0;
+
+    for (const row of rows) {
+      const cpf = String(row.cpf || row.CPF || "")
+        .replace(/\D/g, "")
+        .trim();
+
+      const nome = String(row.nome || row.Nome || "").trim();
+
+      if (!cpf || !nome) continue;
+
+      await pool.query(
+        `
+        INSERT INTO users (cpf, nome, password)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (cpf) DO NOTHING
+        `,
+        [cpf, nome, DEFAULT_PASSWORD]
+      );
+
+      created++;
+    }
+
+    res.json({ users_created: created });
+  } catch (err) {
+    console.error("Erro import users:", err);
+    res.status(500).json({ error: "Erro ao importar usuários" });
+  }
+});
 /* ================= START ================= */
 app.listen(process.env.PORT || 3001, () =>
   console.log("API BQ19 rodando (Ranking + Gamificação + Dashboard)")
