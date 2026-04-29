@@ -9,11 +9,13 @@ const { Pool } = pkg;
 const app = express();
 
 /* ================= MIDDLEWARE ================= */
+import cors from "cors";
+
 app.use(cors({
-  origin: "https://best-quality-19-customer-first.vercel.app",
-  methods: ["GET", "POST", "OPTIONS"],
-  allowedHeaders: ["Content-Type"]
+  origin: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 }));
+``
 app.use(express.json());
 
 /* ================= DATABASE ================= */
