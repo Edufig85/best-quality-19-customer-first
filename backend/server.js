@@ -1,4 +1,3 @@
-
 import express from "express";
 import cors from "cors";
 import multer from "multer";
@@ -21,20 +20,42 @@ const upload = multer({ storage: multer.memoryStorage() });
 app.get("/", (req, res) => res.send("API BQ19 ATIVA"));
 
 app.post("/import-users", upload.single("file"), async (req, res) => {
-  const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet);
-  let count = 0;
-  for (const r of rows) {
-    if (!r.cpf || !r.nome) continue;
-    await pool.query(
-      "INSERT INTO users (cpf,nome) VALUES ($1,$2) ON CONFLICT (cpf) DO NOTHING",
-      [r.cpf, r.nome]
-    );
-    count++;
+  try {
+    if (!req.file) {
+      return res.status(400).send("Arquivo não enviado");
+    }
+
+    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    let count = 0;
+
+    for (const row of rows) {
+      if (!row.cpf || !row.nome) continue;
+
+      await pool.query(
+        `
+        INSERT INTO users (cpf, nome)
+        VALUES ($1, $2)
+        ON CONFLICT (cpf) DO NOTHING
+        `,
+        [String(row.cpf), String(row.nome)]
+      );
+
+      count++;
+    }
+
+    res.json({ users_created: count });
+  } catch (err) {
+    console.error("Erro import-users:", err);
+    res.status(500).send("Erro ao importar usuários");
   }
-  res.json({ users_created: count });
 });
 
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log("API BQ19 NA PORTA", PORT));
+
+app.listen(PORT, () => {
+  console.log("API BQ19 ATIVA NA PORTA", PORT);
+});
+
