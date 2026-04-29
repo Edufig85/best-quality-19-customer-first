@@ -83,7 +83,10 @@ app.post("/login", async (req, res) => {
     nome: user.nome
   });
 });
-
+app.post("/admin/import-users", upload.single("file"), async (req, res) => {
+  // mesma lógica da importação existente
+});
+``
 /* ================= TROCAR SENHA ================= */
 app.post("/change-password", async (req, res) => {
   const { cpf, newPassword } = req.body;
