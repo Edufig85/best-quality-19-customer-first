@@ -9,7 +9,7 @@ const { Pool } = pkg;
 const app = express();
 
 /* ================= MIDDLEWARE ================= */
-import cors from "cors";
+
 
 app.use(cors({
   origin: true,
