@@ -247,6 +247,9 @@ app.get("/admin/dashboard/por-mes", async (_, res) => {
   );
   res.json(r.rows);
 });
+app.get("/", (req, res) => {
+  res.send("API BQ19 ATIVA");
+});
 
 /* ================= START ================= */
 app.listen(process.env.PORT || 3001, () =>
