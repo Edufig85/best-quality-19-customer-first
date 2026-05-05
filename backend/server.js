@@ -5,9 +5,8 @@ import * as XLSX from "xlsx";
 import pkg from "pg";
 
 /* =========================
-   CONFIGURAÇÃO INICIAL
+   APP BASICO
 ========================= */
-
 const { Pool } = pkg;
 const app = express();
 
@@ -15,34 +14,30 @@ app.use(cors({ origin: true }));
 app.use(express.json());
 
 /* =========================
-   BANCO DE DADOS
+   BANCO
 ========================= */
-
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
 });
 
 /* =========================
-   UPLOAD (MULTER)
+   UPLOAD
 ========================= */
-
 const upload = multer({
-  storage: multer.memoryStorage()
+  storage: multer.memoryStorage(),
 });
 
 /* =========================
    HEALTHCHECK
 ========================= */
-
 app.get("/", (req, res) => {
   res.send("API BQ19 ATIVA");
 });
 
 /* =========================
-   IMPORTAÇÃO DE USUÁRIOS
+   IMPORT USERS (FINAL)
 ========================= */
-
 app.post("/import-users", upload.single("file"), async (req, res) => {
   console.log("➡️ POST /import-users");
 
@@ -53,36 +48,59 @@ app.post("/import-users", upload.single("file"), async (req, res) => {
   try {
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    console.log(`📄 Linhas no Excel: ${rows.length}`);
+    console.log("📄 Total de linhas no Excel:", rawRows.length);
+    if (rawRows.length > 0) {
+      console.log("🧪 Primeira linha bruta:", rawRows[0]);
+    }
 
     let created = 0;
 
-    for (const row of rows) {
+    for (const rawRow of rawRows) {
+      /* =========================
+         NORMALIZA CABEÇALHOS
+      ========================= */
+      const row = {};
+      for (const key in rawRow) {
+        const normalizedKey = key
+          .toString()
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "") // remove acentos
+          .replace(/\s+/g, "")            // remove espaços
+          .trim();
+
+        row[normalizedKey] = rawRow[key];
+      }
+
+      /* =========================
+         LE CPF / NOME
+      ========================= */
       const cpfRaw =
         row.cpf ||
-        row.CPF ||
         row.documento ||
-        row.Documento ||
+        row.nocpf ||
         "";
 
       const nomeRaw =
         row.nome ||
-        row.Nome ||
-        row["Nome Completo"] ||
-        row["nome completo"] ||
+        row.nomecompleto ||
+        row.colaborador ||
         "";
 
       const cpf = String(cpfRaw).replace(/\D/g, "");
       const nome = String(nomeRaw).trim();
 
       if (!cpf || !nome) {
-        console.log("⚠️ Linha ignorada:", row);
+        console.log("⚠️ Linha ignorada:", rawRow);
         continue;
       }
 
-      await pool.query(
+      /* =========================
+         INSERT
+      ========================= */
+      const result = await pool.query(
         `
         INSERT INTO users (cpf, nome)
         VALUES ($1, $2)
@@ -91,26 +109,27 @@ app.post("/import-users", upload.single("file"), async (req, res) => {
         [cpf, nome]
       );
 
-      created++;
+      if (result.rowCount === 1) {
+        created++;
+      }
     }
 
-    console.log(`✅ Usuários importados: ${created}`);
+    console.log("✅ Usuários CRIADOS:", created);
 
-    return res.status(200).json({ users_created: created });
+    return res.json({ users_created: created });
 
   } catch (err) {
-    console.error("❌ Erro import-users:", err);
+    console.error("❌ Erro /import-users:", err);
     return res.status(500).json({
       error: "Erro interno ao importar usuários",
-      detalhe: err.message
+      detalhe: err.message,
     });
   }
 });
 
 /* =========================
-   START DO SERVIDOR (RENDER)
+   START (RENDER)
 ========================= */
-
 const PORT = process.env.PORT;
 
 if (!PORT) {
