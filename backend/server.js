@@ -8,7 +8,6 @@ import bcrypt from "bcryptjs";
 /* =========================
    APP
 ========================= */
-
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -16,7 +15,6 @@ app.use(express.json());
 /* =========================
    DATABASE
 ========================= */
-
 const { Pool } = pkg;
 
 const pool = new Pool({
@@ -27,7 +25,6 @@ const pool = new Pool({
 /* =========================
    UPLOAD
 ========================= */
-
 const upload = multer({
   storage: multer.memoryStorage(),
 });
@@ -35,7 +32,6 @@ const upload = multer({
 /* =========================
    HEALTHCHECK
 ========================= */
-
 app.get("/", (req, res) => {
   res.send("API BQ19 ATIVA");
 });
@@ -43,7 +39,6 @@ app.get("/", (req, res) => {
 /* =========================
    IMPORT USERS
 ========================= */
-
 app.post("/import-users", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -59,6 +54,8 @@ app.post("/import-users", upload.single("file"), async (req, res) => {
 
     for (const rawRow of rawRows) {
       const row = {};
+
+      // normaliza cabeçalhos
       for (const key in rawRow) {
         const normalizedKey = key
           .toLowerCase()
@@ -77,8 +74,45 @@ app.post("/import-users", upload.single("file"), async (req, res) => {
         row.nome || row.nomecompleto || row.colaborador || ""
       ).trim();
 
-      if (!cpf || !nome) continue;
+      if (!cpf || !nome) {
+        continue;
+      }
 
       const result = await pool.query(
         `
         INSERT INTO users (cpf, nome, password)
+        VALUES ($1, $2, $3)
+        ON CONFLICT (cpf) DO NOTHING
+        `,
+        [cpf, nome, passwordHash]
+      );
+
+      if (result.rowCount === 1) {
+        created++;
+      }
+    }
+
+    return res.json({ users_created: created });
+
+  } catch (err) {
+    console.error("Erro /import-users:", err);
+    return res.status(500).json({
+      error: "Erro interno ao importar usuários",
+      detalhe: err.message,
+    });
+  }
+});
+
+/* =========================
+   START (RENDER)
+========================= */
+const PORT = process.env.PORT;
+
+if (!PORT) {
+  console.error("PORT não definida");
+  process.exit(1);
+}
+
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("✅ API BQ19 ATIVA NA PORTA", PORT);
+});
