@@ -102,18 +102,21 @@ app.post("/import-users", upload.single("file"), async (req, res) => {
       /* =========================
          INSERT
       ========================= */
-      const result = await pool.query(
-        `
-        INSERT INTO users (cpf, nome)
-        VALUES ($1, $2)
-        ON CONFLICT (cpf) DO NOTHING
-        `,
-        [cpf, nome]
-      );
+     const senhaPadrao = "123456";
+const passwordHash = await bcrypt.hash(senhaPadrao, 10);
 
-      if (result.rowCount === 1) {
-        created++;
-      }
+const result = await pool.query(
+  `
+  INSERT INTO users (cpf, nome, password)
+  VALUES ($1, $2, $3)
+  ON CONFLICT (cpf) DO NOTHING
+  `,
+  [cpf, nome, passwordHash]
+);
+
+if (result.rowCount === 1) {
+  created++;
+}
     }
 
     console.log("✅ Usuários CRIADOS:", created);
