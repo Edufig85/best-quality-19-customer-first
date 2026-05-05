@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<title>Admin • Upload Ranking</title>
+
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #f4f6f8;
+  padding: 40px;
+}
+.container {
+  background: white;
+  padding: 30px;
+  max-width: 500px;
+  margin: auto;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+h1 {
+  text-align: center;
+}
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  font-size: 16px;
+  cursor: pointer;
+}
+#msg {
+  margin-top: 20px;
+  font-weight: bold;
+  text-align: center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+  <h1>Upload do Ranking</h1>
+
+  <input type="file" id="file" accept=".xlsx,.xls" />
+  <button onclick="enviar()">Enviar planilha</button>
+
+  <div id="msg"></div>
+</div>
+
+<script>
+const API = "https://SEU-BACKEND.onrender.com/import-ranking";
+
+function enviar() {
+  const fileInput = document.getElementById("file");
+  const msg = document.getElementById("msg");
+
+  if (!fileInput.files.length) {
+    msg.innerText = "❌ Selecione um arquivo Excel";
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  msg.innerText = "⏳ Enviando e calculando ranking...";
+
+  fetch(API, {
+    method: "POST",
+    body: formData
+  })
+  .then(res => res.json())
+  .then(data => {
+    if (data.ranking_gerado !== undefined) {
+      msg.innerText = "✅ Ranking atualizado! Registros: " + data.ranking_gerado;
+    } else {
+      msg.innerText = "❌ Erro ao processar ranking";
+    }
+  })
+  .catch(() => {
+    msg.innerText = "❌ Erro de conexão com o servidor";
+  });
+}
+</script>
+
+</body>
+</html>
