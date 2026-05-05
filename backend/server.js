@@ -3,7 +3,6 @@ import cors from "cors";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import pkg from "pg";
-import bcrypt from "bcryptjs";
 
 /* =========================
    APP
@@ -25,9 +24,7 @@ const pool = new Pool({
 /* =========================
    UPLOAD
 ========================= */
-const upload = multer({
-  storage: multer.memoryStorage(),
-});
+const upload = multer({ storage: multer.memoryStorage() });
 
 /* =========================
    HEALTHCHECK
@@ -37,81 +34,98 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   IMPORT USERS
+   IMPORT RESULTADOS → RANKING
 ========================= */
-app.post("/import-users", upload.single("file"), async (req, res) => {
+app.post("/import-ranking", upload.single("file"), async (req, res) => {
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "Arquivo não enviado" });
-    }
-
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rawRows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
-    let created = 0;
-    const passwordHash = await bcrypt.hash("123456", 10);
+    await pool.query("DELETE FROM ranking");
 
-    for (const rawRow of rawRows) {
-      const row = {};
+    const map = new Map();
 
-      // normaliza cabeçalhos
-      for (const key in rawRow) {
-        const normalizedKey = key
-          .toLowerCase()
-          .normalize("NFD")
-          .replace(/[\u0300-\u036f]/g, "")
-          .replace(/\s+/g, "");
+    for (const r of rows) {
+      if (
+        r["Status da Matrícula"] !== "Concluído" ||
+        r["Status de Aprovação"] !== "Aprovado" ||
+        r["Situação do Usuário"] !== "Ativo"
+      ) continue;
 
-        row[normalizedKey] = rawRow[key];
-      }
+      const nome = String(r.Usuário).trim();
+      const cargo = String(r.Cargo).trim();
+      const data = new Date(r["Data da Conclusao"]);
 
-      const cpf = String(
-        row.cpf || row.documento || ""
-      ).replace(/\D/g, "");
+      if (!nome || !cargo || isNaN(data)) continue;
 
-      const nome = String(
-        row.nome || row.nomecompleto || row.colaborador || ""
-      ).trim();
+      const key = `${nome}|${cargo}`;
 
-      if (!cpf || !nome) {
-        continue;
-      }
-
-      const result = await pool.query(
-        `
-        INSERT INTO users (cpf, nome, password)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (cpf) DO NOTHING
-        `,
-        [cpf, nome, passwordHash]
-      );
-
-      if (result.rowCount === 1) {
-        created++;
+      if (!map.has(key)) {
+        map.set(key, {
+          nome,
+          cargo,
+          pontos: 1,
+          primeira: data,
+        });
+      } else {
+        const item = map.get(key);
+        item.pontos++;
+        if (data < item.primeira) item.primeira = data;
       }
     }
 
-    return res.json({ users_created: created });
+    for (const v of map.values()) {
+      await pool.query(
+        `
+        INSERT INTO ranking (nome, cargo, pontos, primeira_conclusao)
+        VALUES ($1, $2, $3, $4)
+        `,
+        [v.nome, v.cargo, v.pontos, v.primeira]
+      );
+    }
 
+    res.json({ ranking_gerado: map.size });
   } catch (err) {
-    console.error("Erro /import-users:", err);
-    return res.status(500).json({
-      error: "Erro interno ao importar usuários",
-      detalhe: err.message,
-    });
+    console.error(err);
+    res.status(500).json({ error: "Erro ao processar ranking" });
   }
 });
 
 /* =========================
-   START (RENDER)
+   LISTA DE CATEGORIAS
+========================= */
+app.get("/categorias", async (req, res) => {
+  const result = await pool.query(
+    `SELECT DISTINCT cargo FROM ranking ORDER BY cargo`
+  );
+  res.json(result.rows.map(r => r.cargo));
+});
+
+/* =========================
+   RANKING POR CATEGORIA
+========================= */
+app.get("/ranking/:cargo", async (req, res) => {
+  const cargo = req.params.cargo;
+
+  const result = await pool.query(
+    `
+    SELECT nome, pontos
+    FROM ranking
+    WHERE cargo = $1
+    ORDER BY pontos DESC, primeira_conclusao ASC
+    LIMIT 5
+    `,
+    [cargo]
+  );
+
+  res.json(result.rows);
+});
+
+/* =========================
+   START
 ========================= */
 const PORT = process.env.PORT;
-
-if (!PORT) {
-  console.error("PORT não definida");
-  process.exit(1);
-}
 
 app.listen(PORT, "0.0.0.0", () => {
   console.log("✅ API BQ19 ATIVA NA PORTA", PORT);
