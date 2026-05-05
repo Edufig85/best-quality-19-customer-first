@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Ranking BQ19</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      padding: 20px;
+    }
+
+    h1 {
+      text-align: center;
+    }
+
+    .categoria {
+      background: white;
+      padding: 12px;
+      margin: 8px 0;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    .categoria:hover {
+      background: #eaeaea;
+    }
+
+    .podio {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      margin-top: 25px;
+    }
+
+    .card {
+      background: white;
+      padding: 15px;
+      border-radius: 12px;
+      width: 140px;
+      text-align: center;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+    }
+
+    .ouro { border: 3px solid gold; }
+    .prata { border: 3px solid silver; }
+    .bronze { border: 3px solid #cd7f32; }
+  </style>
+</head>
+
+<body>
+
+<h1>🏆 Ranking por Categoria</h1>
+
+<div id="categorias"></div>
+<div id="ranking"></div>
+
+<script>
+  const API = "https://SEU-BACKEND.onrender.com";
+
+  fetch(API + "/categorias")
+    .then(res => res.json())
+    .then(categorias => {
+      const div = document.getElementById("categorias");
+      categorias.forEach(cat => {
+        const c = document.createElement("div");
+        c.className = "categoria";
+        c.innerText = cat;
+        c.onclick = () => carregarRanking(cat);
+        div.appendChild(c);
+      });
+    });
+
+  function carregarRanking(categoria) {
+    fetch(API + "/ranking/" + encodeURIComponent(categoria))
+      .then(res => res.json())
+      .then(lista => {
+        const r = document.getElementById("ranking");
+        r.innerHTML = `<h2>${categoria}</h2>`;
+
+        const podio = document.createElement("div");
+        podio.className = "podio";
+
+        lista.forEach((p, i) => {
+          const card = document.createElement("div");
+          card.className = "card";
+          if (i === 0) card.classList.add("ouro");
+          if (i === 1) card.classList.add("prata");
+          if (i === 2) card.classList.add("bronze");
+
+          card.innerHTML = `
+            <strong>${i + 1}º lugar</strong><br><br>
+            ${p.nome}<br>
+            <strong>${p.pontos} pontos</strong>
+          `;
+
+          podio.appendChild(card);
+        });
+
+        r.appendChild(podio);
+      });
+  }
+</script>
+
+</body>
+</html>
