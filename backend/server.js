@@ -3,6 +3,8 @@ import cors from "cors";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import pkg from "pg";
+import bcrypt from "bcryptjs";
+
 
 /* =========================
    APP BASICO
