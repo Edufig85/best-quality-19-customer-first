@@ -34,14 +34,20 @@ app.get("/", (req, res) => {
 });
 
 /* =========================
-   IMPORT RESULTADOS → RANKING
+   IMPORTA PLANILHA RESULTADOS
+   E GERA O RANKING
 ========================= */
 app.post("/import-ranking", upload.single("file"), async (req, res) => {
   try {
+    if (!req.file) {
+      return res.status(400).json({ error: "Arquivo não enviado" });
+    }
+
     const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
+    // Limpa ranking anterior
     await pool.query("DELETE FROM ranking");
 
     const map = new Map();
@@ -53,8 +59,8 @@ app.post("/import-ranking", upload.single("file"), async (req, res) => {
         r["Situação do Usuário"] !== "Ativo"
       ) continue;
 
-      const nome = String(r.Usuário).trim();
-      const cargo = String(r.Cargo).trim();
+      const nome = String(r["Usuário"] || "").trim();
+      const cargo = String(r["Cargo"] || "").trim();
       const data = new Date(r["Data da Conclusao"]);
 
       if (!nome || !cargo || isNaN(data)) continue;
@@ -66,29 +72,31 @@ app.post("/import-ranking", upload.single("file"), async (req, res) => {
           nome,
           cargo,
           pontos: 1,
-          primeira: data,
+          primeiraConclusao: data,
         });
       } else {
         const item = map.get(key);
-        item.pontos++;
-        if (data < item.primeira) item.primeira = data;
+        item.pontos += 1;
+        if (data < item.primeiraConclusao) {
+          item.primeiraConclusao = data;
+        }
       }
     }
 
-    for (const v of map.values()) {
+    for (const r of map.values()) {
       await pool.query(
         `
         INSERT INTO ranking (nome, cargo, pontos, primeira_conclusao)
         VALUES ($1, $2, $3, $4)
         `,
-        [v.nome, v.cargo, v.pontos, v.primeira]
+        [r.nome, r.cargo, r.pontos, r.primeiraConclusao]
       );
     }
 
     res.json({ ranking_gerado: map.size });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ error: "Erro ao processar ranking" });
+    res.status(500).json({ error: "Erro ao gerar ranking" });
   }
 });
 
@@ -97,13 +105,13 @@ app.post("/import-ranking", upload.single("file"), async (req, res) => {
 ========================= */
 app.get("/categorias", async (req, res) => {
   const result = await pool.query(
-    `SELECT DISTINCT cargo FROM ranking ORDER BY cargo`
+    "SELECT DISTINCT cargo FROM ranking ORDER BY cargo"
   );
   res.json(result.rows.map(r => r.cargo));
 });
 
 /* =========================
-   RANKING POR CATEGORIA
+   TOP 5 POR CATEGORIA
 ========================= */
 app.get("/ranking/:cargo", async (req, res) => {
   const cargo = req.params.cargo;
