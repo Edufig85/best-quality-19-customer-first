@@ -5,19 +5,26 @@ import { useState } from "react";
 const BACKEND_URL = "https://best-quality-19-customer-first.onrender.com";
 
 export default function PainelAdmin() {
-  const [file, setFile] = useState(null);
-  const [msg, setMsg] = useState("");
+  const [rankingFile, setRankingFile] = useState(null);
+  const [msgRanking, setMsgRanking] = useState("");
 
   async function enviarRanking() {
-    if (!file) {
-      setMsg("❌ Selecione a planilha de ranking");
+    try {
+      // 🔥 WARM-UP DO RENDER (corrige erro de conexão por cold start)
+      await fetch(BACKEND_URL, { method: "GET" });
+    } catch (_) {
+      // mesmo se falhar, continua tentando o upload
+    }
+
+    if (!rankingFile) {
+      setMsgRanking("❌ Selecione a planilha de ranking");
       return;
     }
 
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", rankingFile);
 
-    setMsg("⏳ Enviando ranking...");
+    setMsgRanking("⏳ Enviando e processando ranking...");
 
     try {
       const response = await fetch(
@@ -29,14 +36,16 @@ export default function PainelAdmin() {
       );
 
       if (!response.ok) {
-        throw new Error("Erro HTTP " + response.status);
+        throw new Error("HTTP " + response.status);
       }
 
       const data = await response.json();
-      setMsg(`✅ Ranking atualizado (${data.ranking_gerado} registros)`);
+      setMsgRanking(
+        `✅ Ranking atualizado (${data.ranking_gerado} registros)`
+      );
     } catch (error) {
       console.error(error);
-      setMsg("❌ Erro de conexão");
+      setMsgRanking("❌ Erro de conexão com o backend");
     }
   }
 
@@ -44,12 +53,14 @@ export default function PainelAdmin() {
     <div style={{ padding: 40, fontFamily: "Arial" }}>
       <h1>🛠️ Painel Admin</h1>
 
+      <hr />
+
       <h2>🏆 Importação de Ranking</h2>
 
       <input
         type="file"
         accept=".xlsx,.xls"
-        onChange={(e) => setFile(e.target.files[0])}
+        onChange={(e) => setRankingFile(e.target.files[0])}
       />
 
       <br /><br />
@@ -58,7 +69,7 @@ export default function PainelAdmin() {
         Enviar pontuação para ranking
       </button>
 
-      <p>{msg}</p>
+      <p>{msgRanking}</p>
     </div>
   );
 }
