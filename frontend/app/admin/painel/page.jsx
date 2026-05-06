@@ -25,15 +25,22 @@ export default function PainelAdmin() {
     formData.append("file", usersFile);
 
     setUsersMsg("⏳ Enviando usuários...");
-
+const BACKEND_URL = "https://best-quality-19-customer-first.onrender.com";
     try {
       const res = await fetch(
-        "https://SEU-BACKEND.onrender.com/import-users",
+        "https://best-quality-19-customer-first.onrender.com",
         {
           method: "POST",
           body: formData
         }
       );
+const res = await fetch(
+  BACKEND_URL + "/import-ranking",
+  {
+    method: "POST",
+    body: formData
+  }
+);
 
       setUsersMsg(
         res.ok ? "✅ Usuários importados" : "❌ Erro ao importar usuários"
