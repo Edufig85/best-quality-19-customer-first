@@ -1,5 +1,5 @@
 export const metadata = {
-  title: "Best Quality 19 – Customer First",
+  title: "Best Quality 19 – Customer First"
 };
 
 export default function RootLayout({ children }) {
