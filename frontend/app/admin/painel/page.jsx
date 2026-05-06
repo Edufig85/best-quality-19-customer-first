@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-const BACKEND_URL = "https://best-quality-19-customer-first.onrender.com";
+/* ✅ URL FINAL DO BACKEND (RAILWAY) */
+const BACKEND_URL =
+  "https://best-quality-19-customer-first-production.up.railway.app";
 
 export default function PainelAdmin() {
   const [file, setFile] = useState(null);
@@ -17,7 +19,7 @@ export default function PainelAdmin() {
     setMsg("⏳ Convertendo arquivo...");
 
     try {
-      // Converte o arquivo em base64
+      // Converte para Base64
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () =>
@@ -46,7 +48,10 @@ export default function PainelAdmin() {
       }
 
       const data = await response.json();
-      setMsg(`✅ Ranking atualizado (${data.ranking_gerado} registros)`);
+
+      setMsg(
+        `✅ Ranking atualizado (${data.ranking_gerado} registros)`
+      );
     } catch (error) {
       console.error(error);
       setMsg("❌ Erro de conexão");
@@ -62,7 +67,7 @@ export default function PainelAdmin() {
       <input
         type="file"
         accept=".xlsx,.xls"
-        onChange={(e) => setFile(e.target.files[0])}
+        onChange={e => setFile(e.target.files[0])}
       />
 
       <br /><br />
