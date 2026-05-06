@@ -5,19 +5,19 @@ import { useState } from "react";
 const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
 
 export default function PainelAdmin() {
-  const [rankingFile, setRankingFile] = useState(null);
+  const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
 
   async function enviarRanking() {
-    if (!rankingFile) {
+    if (!file) {
       setMsg("❌ Selecione a planilha");
       return;
     }
 
     const formData = new FormData();
-    formData.append("file", rankingFile);
+    formData.append("file", file);
 
-    setMsg("⏳ Processando ranking...");
+    setMsg("⏳ Enviando ranking...");
 
     try {
       const res = await fetch(`${BACKEND}/import-ranking`, {
@@ -25,14 +25,17 @@ export default function PainelAdmin() {
         body: formData
       });
 
+      if (!res.ok) {
+        throw new Error("Erro HTTP");
+      }
+
       const data = await res.json();
 
-      if (data.ranking_gerado !== undefined) {
-        setMsg(`✅ Ranking atualizado (${data.ranking_gerado} registros)`);
-      } else {
-        setMsg("❌ Erro ao processar ranking");
-      }
-    } catch {
+      setMsg(
+        `✅ Ranking atualizado (${data.ranking_gerado} registros)`
+      );
+    } catch (err) {
+      console.error(err);
       setMsg("❌ Erro de conexão com o backend");
     }
   }
@@ -46,8 +49,9 @@ export default function PainelAdmin() {
       <input
         type="file"
         accept=".xlsx,.xls"
-        onChange={e => setRankingFile(e.target.files[0])}
+        onChange={e => setFile(e.target.files[0])}
       />
+
       <br /><br />
 
       <button onClick={enviarRanking}>
