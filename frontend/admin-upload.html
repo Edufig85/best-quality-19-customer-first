@@ -1,85 +1,94 @@
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
-<meta charset="UTF-8">
-<title>Admin • Upload Ranking</title>
+  <meta charset="UTF-8">
+  <title>Painel Admin</title>
 
-<style>
-body {
-  font-family: Arial, sans-serif;
-  background: #f4f6f8;
-  padding: 40px;
-}
-.container {
-  background: white;
-  padding: 30px;
-  max-width: 500px;
-  margin: auto;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-}
-h1 {
-  text-align: center;
-}
-button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 15px;
-  font-size: 16px;
-  cursor: pointer;
-}
-#msg {
-  margin-top: 20px;
-  font-weight: bold;
-  text-align: center;
-}
-</style>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 40px;
+    }
+    button {
+      margin-top: 10px;
+      padding: 6px 14px;
+    }
+    .bloco {
+      margin-bottom: 40px;
+    }
+  </style>
 </head>
 
 <body>
 
-<div class="container">
-  <h1>Upload do Ranking</h1>
+<h1>🛠️ Painel Admin</h1>
 
-  <input type="file" id="file" accept=".xlsx,.xls" />
-  <button onclick="enviar()">Enviar planilha</button>
+<!-- ========================= -->
+<!-- IMPORTAÇÃO DE USUÁRIOS -->
+<!-- ========================= -->
+<div class="bloco">
+  <h2>Importação de Usuários</h2>
 
-  <div id="msg"></div>
+  <input type="file" id="usersFile" />
+  <br>
+  <button onclick="enviarUsuarios()">Enviar usuários</button>
+
+  <p id="usersMsg"></p>
+</div>
+
+<hr>
+
+<!-- ========================= -->
+<!-- IMPORTAÇÃO DE RANKING -->
+<!-- ========================= -->
+<div class="bloco">
+  <h2>🏆 Importação de Ranking</h2>
+
+  <input
+    type="file"
+    id="rankingFile"
+    accept=".xlsx,.xls"
+  />
+  <br>
+  <button onclick="enviarRanking()">Enviar pontuação para ranking</button>
+
+  <p id="rankingMsg"></p>
 </div>
 
 <script>
-const API = "https://SEU-BACKEND.onrender.com/import-ranking";
+  const BACKEND = "https://SEU-BACKEND.onrender.com";
 
-function enviar() {
-  const fileInput = document.getElementById("file");
-  const msg = document.getElementById("msg");
+  function enviarRanking() {
+    const file = document.getElementById("rankingFile").files[0];
+    const msg = document.getElementById("rankingMsg");
 
-  if (!fileInput.files.length) {
-    msg.innerText = "❌ Selecione um arquivo Excel";
-    return;
-  }
-
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
-
-  msg.innerText = "⏳ Enviando e calculando ranking...";
-
-  fetch(API, {
-    method: "POST",
-    body: formData
-  })
-  .then(res => res.json())
-  .then(data => {
-    if (data.ranking_gerado !== undefined) {
-      msg.innerText = "✅ Ranking atualizado! Registros: " + data.ranking_gerado;
-    } else {
-      msg.innerText = "❌ Erro ao processar ranking";
+    if (!file) {
+      msg.innerText = "❌ Selecione a planilha";
+      return;
     }
-  })
-  .catch(() => {
-    msg.innerText = "❌ Erro de conexão com o servidor";
-  });
-}
+
+    const formData = new FormData();
+    formData.append("file", file);
+
+    msg.innerText = "⏳ Processando ranking...";
+
+    fetch(BACKEND + "/import-ranking", {
+      method: "POST",
+      body: formData
+    })
+    .then(r => r.json())
+    .then(d => {
+      if (d.ranking_gerado !== undefined) {
+        msg.innerText =
+          "✅ Ranking atualizado (" + d.ranking_gerado + " registros)";
+      } else {
+        msg.innerText = "❌ Erro ao gerar ranking";
+      }
+    })
+    .catch(() => {
+      msg.innerText = "❌ Erro de conexão";
+    });
+  }
 </script>
 
 </body>
