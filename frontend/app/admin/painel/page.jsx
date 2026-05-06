@@ -5,26 +5,19 @@ import { useState } from "react";
 const BACKEND_URL = "https://best-quality-19-customer-first.onrender.com";
 
 export default function PainelAdmin() {
-  const [rankingFile, setRankingFile] = useState(null);
-  const [msgRanking, setMsgRanking] = useState("");
+  const [file, setFile] = useState(null);
+  const [msg, setMsg] = useState("");
 
   async function enviarRanking() {
-    try {
-      // 🔥 WARM-UP DO RENDER (corrige erro de conexão por cold start)
-      await fetch(BACKEND_URL, { method: "GET" });
-    } catch (_) {
-      // mesmo se falhar, continua tentando o upload
-    }
-
-    if (!rankingFile) {
-      setMsgRanking("❌ Selecione a planilha de ranking");
+    if (!file) {
+      setMsg("❌ Selecione a planilha de ranking");
       return;
     }
 
     const formData = new FormData();
-    formData.append("file", rankingFile);
+    formData.append("file", file);
 
-    setMsgRanking("⏳ Enviando e processando ranking...");
+    setMsg("⏳ Enviando arquivo...");
 
     try {
       const response = await fetch(
@@ -35,17 +28,16 @@ export default function PainelAdmin() {
         }
       );
 
-      if (!response.ok) {
-        throw new Error("HTTP " + response.status);
-      }
-
       const data = await response.json();
-      setMsgRanking(
-        `✅ Ranking atualizado (${data.ranking_gerado} registros)`
-      );
+
+      if (data.status === "processando") {
+        setMsg("✅ Arquivo recebido. Ranking está sendo processado…");
+      } else {
+        setMsg("✅ Ranking atualizado");
+      }
     } catch (error) {
       console.error(error);
-      setMsgRanking("❌ Erro de conexão com o backend");
+      setMsg("❌ Erro de conexão");
     }
   }
 
@@ -53,14 +45,12 @@ export default function PainelAdmin() {
     <div style={{ padding: 40, fontFamily: "Arial" }}>
       <h1>🛠️ Painel Admin</h1>
 
-      <hr />
-
       <h2>🏆 Importação de Ranking</h2>
 
       <input
         type="file"
         accept=".xlsx,.xls"
-        onChange={(e) => setRankingFile(e.target.files[0])}
+        onChange={(e) => setFile(e.target.files[0])}
       />
 
       <br /><br />
@@ -69,8 +59,7 @@ export default function PainelAdmin() {
         Enviar pontuação para ranking
       </button>
 
-      <p>{msgRanking}</p>
+      <p>{msg}</p>
     </div>
   );
 }
-``
