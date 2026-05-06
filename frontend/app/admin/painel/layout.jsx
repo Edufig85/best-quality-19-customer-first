@@ -1,3 +1,7 @@
-export default function Layout({ children }) {
-  return children;
+export default function PainelLayout({ children }) {
+  return (
+    <section>
+      {children}
+    </section>
+  );
 }
