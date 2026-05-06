@@ -7,11 +7,7 @@ import pkg from "pg";
 const app = express();
 app.use(cors());
 app.use(express.json());
-const PORT = process.env.PORT || 3001;
 
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("✅ API BQ19 ATIVA NA PORTA", PORT);
-});
 const { Pool } = pkg;
 
 const pool = new Pool({
@@ -31,9 +27,9 @@ app.post("/import-ranking", upload.single("file"), async (req, res) => {
       return res.status(400).json({ error: "Arquivo não enviado" });
     }
 
-    const workbook = XLSX.read(req.file.buffer, { type: "buffer" });
-    const sheet = workbook.Sheets[workbook.SheetNames[0]];
-    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+    const wb = XLSX.read(req.file.buffer, { type: "buffer" });
+    const ws = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(ws, { defval: "" });
 
     await pool.query("DELETE FROM ranking");
 
@@ -55,12 +51,7 @@ app.post("/import-ranking", upload.single("file"), async (req, res) => {
       const key = `${nome}|${cargo}`;
 
       if (!map.has(key)) {
-        map.set(key, {
-          nome,
-          cargo,
-          pontos: 1,
-          primeira: data
-        });
+        map.set(key, { nome, cargo, pontos: 1, primeira: data });
       } else {
         const item = map.get(key);
         item.pontos++;
@@ -76,35 +67,13 @@ app.post("/import-ranking", upload.single("file"), async (req, res) => {
     }
 
     res.json({ ranking_gerado: map.size });
-  } catch (err) {
-    console.error(err);
+  } catch (e) {
+    console.error(e);
     res.status(500).json({ error: "Erro ao gerar ranking" });
   }
 });
 
-app.get("/categorias", async (req, res) => {
-  const result = await pool.query(
-    "SELECT DISTINCT cargo FROM ranking ORDER BY cargo"
-  );
-  res.json(result.rows.map(r => r.cargo));
-});
-
-app.get("/ranking/:cargo", async (req, res) => {
-  const cargo = req.params.cargo;
-
-  const result = await pool.query(
-    `SELECT nome, pontos
-     FROM ranking
-     WHERE cargo = $1
-     ORDER BY pontos DESC, primeira_conclusao ASC
-     LIMIT 5`,
-    [cargo]
-  );
-
-  res.json(result.rows);
-});
-
-const PORT = process.env.PORT;
-app.listen(PORT, "0.0.0.0", () => {
-  console.log("✅ API BQ19 ATIVA");
-});
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, "0.0.0.0", () =>
+  console.log("✅ API BQ19 ATIVA NA PORTA", PORT)
+);
