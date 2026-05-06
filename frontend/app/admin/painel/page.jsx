@@ -3,69 +3,117 @@
 import { useState } from "react";
 
 export default function PainelAdmin() {
-  const [file, setFile] = useState(null);
-  const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(false);
+  /* =========================
+     USUÁRIOS
+  ========================= */
+  const [usersFile, setUsersFile] = useState(null);
+  const [usersMsg, setUsersMsg] = useState("");
 
-  const enviarUsuarios = async () => {
-    if (!file) {
-      setMsg("❌ Selecione um arquivo antes de enviar.");
+  /* =========================
+     RANKING
+  ========================= */
+  const [rankingFile, setRankingFile] = useState(null);
+  const [rankingMsg, setRankingMsg] = useState("");
+
+  async function enviarUsuarios() {
+    if (!usersFile) {
+      setUsersMsg("❌ Selecione um arquivo");
       return;
     }
 
-    setLoading(true);
-    setMsg("⏳ Enviando usuários...");
-
     const formData = new FormData();
-    formData.append("file", file);
+    formData.append("file", usersFile);
+
+    setUsersMsg("⏳ Enviando usuários...");
 
     try {
       const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/import-users`,
+        "https://SEU-BACKEND.onrender.com/import-users",
         {
           method: "POST",
-          body: formData,
+          body: formData
         }
       );
 
-      if (!res.ok) {
-        const text = await res.text();
-        setMsg(`❌ Erro do servidor: ${text}`);
-        return;
-      }
+      setUsersMsg(
+        res.ok ? "✅ Usuários importados" : "❌ Erro ao importar usuários"
+      );
+    } catch {
+      setUsersMsg("❌ Erro de conexão");
+    }
+  }
+
+  async function enviarRanking() {
+    if (!rankingFile) {
+      setRankingMsg("❌ Selecione a planilha de ranking");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", rankingFile);
+
+    setRankingMsg("⏳ Calculando ranking...");
+
+    try {
+      const res = await fetch(
+        "https://SEU-BACKEND.onrender.com/import-ranking",
+        {
+          method: "POST",
+          body: formData
+        }
+      );
 
       const data = await res.json();
-      setMsg(`✅ Usuários criados: ${data.users_created}`);
-    } catch (e) {
-      console.error(e);
-      setMsg("❌ Erro de conexão com o servidor.");
-    } finally {
-      setLoading(false);
+
+      if (data.ranking_gerado !== undefined) {
+        setRankingMsg(
+          `✅ Ranking atualizado (${data.ranking_gerado} registros)`
+        );
+      } else {
+        setRankingMsg("❌ Erro ao gerar ranking");
+      }
+    } catch {
+      setRankingMsg("❌ Erro de conexão");
     }
-  };
+  }
 
   return (
-    <div style={{ padding: 40, maxWidth: 500 }}>
-      <h1>🛠 Painel Admin</h1>
+    <div style={{ padding: 40 }}>
+      <h1>🛠️ Painel Admin</h1>
 
-      <h3>Importação de Usuários</h3>
+      {/* ===================== */}
+      {/* USUÁRIOS */}
+      {/* ===================== */}
+      <h2>Importação de Usuários</h2>
 
       <input
         type="file"
-        accept=".xls,.xlsx"
-        onChange={(e) => {
-          setFile(e.target.files[0]);
-          setMsg("");
-        }}
+        accept=".xlsx,.xls"
+        onChange={e => setUsersFile(e.target.files[0])}
       />
-
       <br /><br />
+      <button onClick={enviarUsuarios}>Enviar usuários</button>
 
-      <button onClick={enviarUsuarios} disabled={loading}>
-        {loading ? "Enviando..." : "Enviar usuários"}
+      <p>{usersMsg}</p>
+
+      <hr style={{ margin: "40px 0" }} />
+
+      {/* ===================== */}
+      {/* RANKING */}
+      {/* ===================== */}
+      <h2>🏆 Importação de Ranking</h2>
+
+      <input
+        type="file"
+        accept=".xlsx,.xls"
+        onChange={e => setRankingFile(e.target.files[0])}
+      />
+      <br /><br />
+      <button onClick={enviarRanking}>
+        Enviar pontuação para ranking
       </button>
 
-      <p style={{ marginTop: 20 }}>{msg}</p>
+      <p>{rankingMsg}</p>
     </div>
   );
 }
