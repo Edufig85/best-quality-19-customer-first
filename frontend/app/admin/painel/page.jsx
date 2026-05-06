@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
-
-const BACKEND_URL = "https://best-quality-19-customer-first.onrender.com";
+import { use = "https://best-quality-19-customer-first.onrender.com";import { useState } from "react";
 
 export default function PainelAdmin() {
   const [file, setFile] = useState(null);
@@ -14,29 +12,41 @@ export default function PainelAdmin() {
       return;
     }
 
-    const formData = new FormData();
-    formData.append("file", file);
-
-    setMsg("⏳ Enviando arquivo...");
+    setMsg("⏳ Convertendo arquivo...");
 
     try {
+      // converte arquivo em base64
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () =>
+          resolve(reader.result.split(",")[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      setMsg("⏳ Enviando ranking...");
+
       const response = await fetch(
         BACKEND_URL + "/import-ranking",
         {
           method: "POST",
-          body: formData
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            fileBase64: base64
+          })
         }
       );
 
-      const data = await response.json();
-
-      if (data.status === "processando") {
-        setMsg("✅ Arquivo recebido. Ranking está sendo processado…");
-      } else {
-        setMsg("✅ Ranking atualizado");
+      if (!response.ok) {
+        throw new Error("Erro HTTP");
       }
-    } catch (error) {
-      console.error(error);
+
+      const data = await response.json();
+      setMsg(`✅ Ranking atualizado (${data.ranking_gerado} registros)`);
+    } catch (err) {
+      console.error(err);
       setMsg("❌ Erro de conexão");
     }
   }
