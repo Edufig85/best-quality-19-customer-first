@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 
-/* ✅ URL FINAL DO BACKEND (RAILWAY) */
+/**
+ * ✅ BACKEND NO RAILWAY
+ */
 const BACKEND_URL =
   "https://best-quality-19-customer-first-production.up.railway.app";
 
@@ -16,14 +18,17 @@ export default function PainelAdmin() {
       return;
     }
 
-    setMsg("⏳ Convertendo arquivo...");
+    setMsg("⏳ Preparando arquivo...");
 
     try {
-      // Converte para Base64
+      // Converte o arquivo para Base64
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = () =>
-          resolve(reader.result.split(",")[1]);
+        reader.onload = () => {
+          const result = reader.result;
+          if (!result) return reject("Falha ao ler arquivo");
+          resolve(result.split(",")[1]);
+        };
         reader.onerror = reject;
         reader.readAsDataURL(file);
       });
@@ -31,29 +36,25 @@ export default function PainelAdmin() {
       setMsg("⏳ Enviando ranking...");
 
       const response = await fetch(
-        BACKEND_URL + "/import-ranking",
+        `${BACKEND_URL}/import-ranking`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json"
           },
-          body: JSON.stringify({
-            fileBase64: base64
-          })
+          body: JSON.stringify({ fileBase64: base64 })
         }
       );
 
-      if (!response.ok) {
-        throw new Error("Erro HTTP");
-      }
-
       const data = await response.json();
 
-      setMsg(
-        `✅ Ranking atualizado (${data.ranking_gerado} registros)`
-      );
+      if (!response.ok) {
+        throw new Error(data.error || "Erro no backend");
+      }
+
+      setMsg(`✅ Ranking atualizado (${data.ranking_gerado} registros)`);
     } catch (error) {
-      console.error(error);
+      console.error("Erro frontend:", error);
       setMsg("❌ Erro de conexão");
     }
   }
@@ -62,12 +63,13 @@ export default function PainelAdmin() {
     <div style={{ padding: 40, fontFamily: "Arial" }}>
       <h1>🛠️ Painel Admin</h1>
 
+      {/* ✅ SOMENTE RANKING – USUÁRIOS FOI REMOVIDO */}
       <h2>🏆 Importação de Ranking</h2>
 
       <input
         type="file"
         accept=".xlsx,.xls"
-        onChange={e => setFile(e.target.files[0])}
+        onChange={(e) => setFile(e.target.files[0])}
       />
 
       <br /><br />
@@ -80,3 +82,4 @@ export default function PainelAdmin() {
     </div>
   );
 }
+``
