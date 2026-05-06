@@ -1,6 +1,8 @@
 "use client";
 
-import { use = "https://best-quality-19-customer-first.onrender.com";import { useState } from "react";
+import { useState } from "react";
+
+const BACKEND_URL = "https://best-quality-19-customer-first.onrender.com";
 
 export default function PainelAdmin() {
   const [file, setFile] = useState(null);
@@ -15,7 +17,7 @@ export default function PainelAdmin() {
     setMsg("⏳ Convertendo arquivo...");
 
     try {
-      // converte arquivo em base64
+      // Converte o arquivo em base64
       const base64 = await new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () =>
@@ -45,8 +47,8 @@ export default function PainelAdmin() {
 
       const data = await response.json();
       setMsg(`✅ Ranking atualizado (${data.ranking_gerado} registros)`);
-    } catch (err) {
-      console.error(err);
+    } catch (error) {
+      console.error(error);
       setMsg("❌ Erro de conexão");
     }
   }
