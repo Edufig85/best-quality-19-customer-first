@@ -1,6 +1,0 @@
-{
-  "name": "bq19-frontend",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "
