@@ -17,10 +17,16 @@ const pool = new Pool({
 
 const upload = multer({ storage: multer.memoryStorage() });
 
+/* ======================
+   HEALTHCHECK
+====================== */
 app.get("/", (req, res) => {
   res.send("API BQ19 ATIVA");
 });
 
+/* ======================
+   IMPORTAÇÃO RANKING
+====================== */
 app.post("/import-ranking", upload.single("file"), async (req, res) => {
   try {
     if (!req.file) {
@@ -61,14 +67,17 @@ app.post("/import-ranking", upload.single("file"), async (req, res) => {
 
     for (const v of map.values()) {
       await pool.query(
-        "INSERT INTO ranking (nome, cargo, pontos, primeira_conclusao) VALUES ($1,$2,$3,$4)",
+        `
+        INSERT INTO ranking (nome, cargo, pontos, primeira_conclusao)
+        VALUES ($1,$2,$3,$4)
+        `,
         [v.nome, v.cargo, v.pontos, v.primeira]
       );
     }
 
     res.json({ ranking_gerado: map.size });
-  } catch (e) {
-    console.error(e);
+  } catch (err) {
+    console.error(err);
     res.status(500).json({ error: "Erro ao gerar ranking" });
   }
 });
