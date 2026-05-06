@@ -7,7 +7,11 @@ import pkg from "pg";
 const app = express();
 app.use(cors());
 app.use(express.json());
+const PORT = process.env.PORT || 3001;
 
+app.listen(PORT, "0.0.0.0", () => {
+  console.log("✅ API BQ19 ATIVA NA PORTA", PORT);
+});
 const { Pool } = pkg;
 
 const pool = new Pool({
