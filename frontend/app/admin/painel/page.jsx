@@ -2,85 +2,38 @@
 
 import { useState } from "react";
 
+const BACKEND = process.env.NEXT_PUBLIC_BACKEND_URL;
+
 export default function PainelAdmin() {
-  /* =========================
-     USUÁRIOS
-  ========================= */
-  const [usersFile, setUsersFile] = useState(null);
-  const [usersMsg, setUsersMsg] = useState("");
-
-  /* =========================
-     RANKING
-  ========================= */
   const [rankingFile, setRankingFile] = useState(null);
-  const [rankingMsg, setRankingMsg] = useState("");
-
-  async function enviarUsuarios() {
-    if (!usersFile) {
-      setUsersMsg("❌ Selecione um arquivo");
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", usersFile);
-
-    setUsersMsg("⏳ Enviando usuários...");
-const BACKEND_URL = "https://best-quality-19-customer-first.onrender.com";
-    try {
-      const res = await fetch(
-        "https://best-quality-19-customer-first.onrender.com",
-        {
-          method: "POST",
-          body: formData
-        }
-      );
-const res = await fetch(
-  BACKEND_URL + "/import-ranking",
-  {
-    method: "POST",
-    body: formData
-  }
-);
-
-      setUsersMsg(
-        res.ok ? "✅ Usuários importados" : "❌ Erro ao importar usuários"
-      );
-    } catch {
-      setUsersMsg("❌ Erro de conexão");
-    }
-  }
+  const [msg, setMsg] = useState("");
 
   async function enviarRanking() {
     if (!rankingFile) {
-      setRankingMsg("❌ Selecione a planilha de ranking");
+      setMsg("❌ Selecione a planilha");
       return;
     }
 
     const formData = new FormData();
     formData.append("file", rankingFile);
 
-    setRankingMsg("⏳ Calculando ranking...");
+    setMsg("⏳ Processando ranking...");
 
     try {
-      const res = await fetch(
-        "https://SEU-BACKEND.onrender.com/import-ranking",
-        {
-          method: "POST",
-          body: formData
-        }
-      );
+      const res = await fetch(`${BACKEND}/import-ranking`, {
+        method: "POST",
+        body: formData
+      });
 
       const data = await res.json();
 
       if (data.ranking_gerado !== undefined) {
-        setRankingMsg(
-          `✅ Ranking atualizado (${data.ranking_gerado} registros)`
-        );
+        setMsg(`✅ Ranking atualizado (${data.ranking_gerado} registros)`);
       } else {
-        setRankingMsg("❌ Erro ao gerar ranking");
+        setMsg("❌ Erro ao processar ranking");
       }
     } catch {
-      setRankingMsg("❌ Erro de conexão");
+      setMsg("❌ Erro de conexão com o backend");
     }
   }
 
@@ -88,26 +41,6 @@ const res = await fetch(
     <div style={{ padding: 40 }}>
       <h1>🛠️ Painel Admin</h1>
 
-      {/* ===================== */}
-      {/* USUÁRIOS */}
-      {/* ===================== */}
-      <h2>Importação de Usuários</h2>
-
-      <input
-        type="file"
-        accept=".xlsx,.xls"
-        onChange={e => setUsersFile(e.target.files[0])}
-      />
-      <br /><br />
-      <button onClick={enviarUsuarios}>Enviar usuários</button>
-
-      <p>{usersMsg}</p>
-
-      <hr style={{ margin: "40px 0" }} />
-
-      {/* ===================== */}
-      {/* RANKING */}
-      {/* ===================== */}
       <h2>🏆 Importação de Ranking</h2>
 
       <input
@@ -116,11 +49,12 @@ const res = await fetch(
         onChange={e => setRankingFile(e.target.files[0])}
       />
       <br /><br />
+
       <button onClick={enviarRanking}>
         Enviar pontuação para ranking
       </button>
 
-      <p>{rankingMsg}</p>
+      <p>{msg}</p>
     </div>
   );
 }
