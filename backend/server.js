@@ -4,22 +4,14 @@ import pkg from "pg";
 
 const app = express();
 
-/* ===============================
-   CORS MANUAL (CORRETO)
-================================ */
+/* ===== CORS DEFINITIVO ===== */
 app.use((req, res, next) => {
   res.setHeader(
     "Access-Control-Allow-Origin",
     "https://best-quality-19-customer-first.vercel.app"
   );
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET,POST,OPTIONS"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Content-Type"
-  );
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 
   if (req.method === "OPTIONS") {
     return res.sendStatus(204);
@@ -28,38 +20,44 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: "30mb" }));
+app.use(express.json({ limit: "20mb" }));
 
-/* ===============================
-   DATABASE (Railway)
-================================ */
+/* ===== DATABASE ===== */
 const { Pool } = pkg;
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   ssl: false
 });
 
-/* ===============================
-   HEALTH
-================================ */
-app.get("/", (req, res) => {
+/* ===== HEALTH ===== */
+app.get("/", (_, res) => {
   res.send("API BQ19 ATIVA");
 });
 
-/* ===============================
-   IMPORTAÇÃO DE RANKING
-================================ */
+/* ===== IMPORT RANKING ===== */
 app.post("/import-ranking", async (req, res) => {
   try {
-    if (!req.body || !req.body.fileBase64) {
-      return res
-        .status(400)
-        .json({ error: "fileBase64 ausente" });
+    const { fileBase64 } = req.body;
+
+    if (!fileBase64 || typeof fileBase64 !== "string") {
+      return res.status(400).json({ error: "Arquivo inválido" });
     }
 
-    const buffer = Buffer.from(req.body.fileBase64, "base64");
+    let buffer;
+    try {
+      buffer = Buffer.from(fileBase64, "base64");
+    } catch {
+      return res.status(400).json({ error: "Base64 inválido" });
+    }
 
-    const workbook = XLSX.read(buffer, { type: "buffer" });
+    let workbook;
+    try {
+      workbook = XLSX.read(buffer, { type: "buffer" });
+    } catch (err) {
+      console.error("ERRO XLSX:", err);
+      return res.status(400).json({ error: "Arquivo Excel inválido" });
+    }
+
     const sheet = workbook.Sheets[workbook.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
 
@@ -72,8 +70,7 @@ app.post("/import-ranking", async (req, res) => {
         r["Status da Matrícula"] !== "Concluído" ||
         r["Status de Aprovação"] !== "Aprovado" ||
         r["Situação do Usuário"] !== "Ativo"
-      )
-        continue;
+      ) continue;
 
       const nome = String(r["Usuário"] || "").trim();
       const cargo = String(r["Cargo"] || "").trim();
@@ -82,32 +79,25 @@ app.post("/import-ranking", async (req, res) => {
       if (!nome || !cargo || isNaN(data)) continue;
 
       await pool.query(
-        `
-        INSERT INTO ranking (nome, cargo, pontos, primeira_conclusao)
-        VALUES ($1, $2, 1, $3)
-        `,
+        `INSERT INTO ranking (nome, cargo, pontos, primeira_conclusao)
+         VALUES ($1, $2, 1, $3)`,
         [nome, cargo, data]
       );
 
       total++;
     }
 
-    /* ✅ RESPOSTA GARANTIDA */
     return res.json({ ranking_gerado: total });
-  } catch (err) {
-    console.error("ERRO IMPORT-RANKING:", err);
 
-    /* ✅ RESPOSTA GARANTIDA EM ERRO */
-    return res
-      .status(500)
-      .json({ error: "Falha no processamento do ranking" });
+  } catch (err) {
+    console.error("ERRO GERAL:", err);
+    return res.status(500).json({ error: "Falha interna" });
   }
 });
 
-/* ===============================
-   START
-================================ */
+/* ===== START ===== */
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log("✅ API BQ19 ATIVA NA PORTA", PORT);
 });
+``
