@@ -229,8 +229,11 @@ body{
   max-height:260px;overflow-y:auto;z-index:100;display:none;
 }
 .ms-dropdown.open{display:block;}
-.ms-option{padding:8px 12px;font-size:13px;cursor:pointer;display:flex;justify-content:space-between;gap:8px;}
+.ms-option{padding:8px 12px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:9px;}
 .ms-option:hover{background:var(--panel-soft);}
+.ms-option.ms-option-checked{background:var(--accent-soft);}
+.ms-option.ms-option-checked:hover{background:var(--accent-soft);filter:brightness(0.97);}
+.ms-option input[type=checkbox]{flex-shrink:0;pointer-events:none;width:15px;height:15px;accent-color:var(--brand);}
 .ms-option small{color:var(--ink-soft);font-family:var(--font-mono);}
 .ms-empty{padding:10px 12px;font-size:12.5px;color:var(--ink-soft);}
 
@@ -549,8 +552,6 @@ tr.row-clickable:hover{background:var(--accent-soft) !important;}
       <button data-tab="matriz">Matriz</button>
       <button data-tab="demanda">Demanda Reprimida</button>
       <button data-tab="ocupacaolocal">Ocupação por Local</button>
-      <button data-tab="ocupacaoseg">Ocupação por Segmento</button>
-      <button data-tab="prioridade">Prioridade</button>
       <button data-tab="turnover">Turnover</button>
       <button data-tab="novasturmas">Novas Turmas</button>
       <button data-tab="concessionarias">Dados Concessionárias</button>
@@ -792,7 +793,7 @@ tr.row-clickable:hover{background:var(--accent-soft) !important;}
       <div class="panel">
         <div class="panel-body">
           <div id="map-demanda"></div>
-          <p class="footnote">Cada bolha representa uma cidade com concessionária(s) e mostra o número exato de pendências (clique para ver quais concessionárias). As posições são localizadas automaticamente pela cidade de cada concessionária na primeira vez que o mapa é aberto (usando o serviço público OpenStreetMap/Nominatim) e ficam salvas no navegador — nas próximas vezes o mapa carrega instantaneamente. Enquanto uma cidade ainda não foi localizada, ela aparece temporariamente no centróide da UF. A legenda de cor fica no canto inferior direito do mapa.</p>
+          <p class="footnote">Cada bolha representa uma cidade com concessionária(s). Passe o mouse sobre uma bolha para ver o nome da cidade e o número de pendências; clique para ver quais concessionárias. As posições são localizadas automaticamente pela cidade de cada concessionária na primeira vez que o mapa é aberto (usando o serviço público OpenStreetMap/Nominatim) e ficam salvas no navegador — nas próximas vezes o mapa carrega instantaneamente. Enquanto uma cidade ainda não foi localizada, ela aparece temporariamente no centróide da UF. A legenda de cor fica no canto inferior direito do mapa.</p>
           <p class="footnote">Sem conexão com a internet no momento da primeira abertura desta aba, a localização por cidade não funciona e o mapa permanece no nível de UF — tudo o mais no dashboard continua funcionando normalmente offline.</p>
         </div>
       </div>
@@ -818,51 +819,12 @@ tr.row-clickable:hover{background:var(--accent-soft) !important;}
       </div>
     </section>
 
-    <!-- 9) OCUPAÇÃO POR SEGMENTO -->
-    <section class="tab-panel" id="tab-ocupacaoseg">
-      <div class="tab-head">
-        <div>
-          <div class="tab-title">Ocupação por segmento</div>
-          <div class="tab-desc">Comparativo 2W / 4W / M&amp;M.</div>
-        </div>
-      </div>
-      <div class="kpi-grid" id="segKpis"></div>
-      <div class="panel">
-        <div class="panel-head"><h3>Matrículas por segmento</h3></div>
-        <div class="panel-body"><div class="chart-wrap short"><canvas id="segChart"></canvas></div></div>
-      </div>
-      <p class="footnote" id="mmNote"></p>
-    </section>
-
-    <!-- 10) PRIORIDADE -->
-    <section class="tab-panel" id="tab-prioridade">
-      <div class="tab-head">
-        <div>
-          <div class="tab-title">Prioridade por criticidade da concessionária</div>
-          <div class="tab-desc">Score = Σ (fator normalizado × peso). Ajuste os pesos abaixo.</div>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Configuração de pesos</h3></div>
-        <div class="panel-body">
-          <div class="config-grid" id="priorityWeights"></div>
-          <p class="footnote">TSI (tempo de serviço/indicador auxiliar) não está claramente disponível nas bases enviadas — o peso correspondente fica com estrutura pronta para integração futura (ver <code>calculatePriorityScore()</code> em app.js).</p>
-        </div>
-      </div>
-      <div class="panel">
-        <div class="panel-head"><h3>Ranking de criticidade</h3></div>
-        <div class="panel-body">
-          <div class="table-scroll"><table class="data-table" id="prioTable"></table></div>
-        </div>
-      </div>
-    </section>
-
     <!-- 11) TURNOVER -->
     <section class="tab-panel" id="tab-turnover">
       <div class="tab-head">
         <div>
           <div class="tab-title">Turnover de treinados</div>
-          <div class="tab-desc">Turnover = treinados desligados (situação de usuário inativa) ÷ total de treinados.</div>
+          <div class="tab-desc">Turnover = colaboradores treinados que já foram desligados ÷ total de colaboradores ativos (não mais dividido pelo total de treinados).</div>
         </div>
       </div>
       <div class="kpi-grid" id="turnKpis"></div>
@@ -1523,6 +1485,29 @@ function isSim(v){ return stripAccents(v).toUpperCase() === 'SIM'; }
 function isAprovado(v){ const s = stripAccents(v).toUpperCase(); return s==='APROVADO' || s==='SIM' || s==='CONCLUIDO'; }
 function isInativo(v){ return stripAccents(v).toUpperCase().indexOf('INATIVO') !== -1; }
 
+// normalizeLocalName(): agrupa variações de nome de turma/local sob um nome
+// padrão de unidade (aba "Ocupação por Local"). Regras definidas pelo
+// negócio:
+//   contém "UMT" + ("Rec"/"Recife")            -> "UMT Recife"
+//   contém "UMT" + ("Sum"/"Sumarc"/"Sumaré")    -> "UMT Sumaré"
+//   contém "Rec"/"Recife" (sem "UMT")           -> "CT Recife"
+//   contém "Sum"/"Sumarc"/"Sumaré" (sem "UMT")  -> "CT Sumaré"
+// Comparação por substring (não por palavra inteira), conforme pedido —
+// isso cobre formatos colados como "UMTRec"/"UMTSum", mas pode agrupar
+// incorretamente algum nome de turma que contenha essas letras por
+// coincidência (ex.: "RECURSOS"). Ajuste aqui se isso ocorrer na prática.
+function normalizeLocalName(turma){
+  const s = stripAccents(turma).toUpperCase();
+  const hasUMT = s.includes('UMT');
+  const isRecife = s.includes('REC');
+  const isSumare = s.includes('SUM');
+  if (hasUMT && isRecife) return 'UMT Recife';
+  if (hasUMT && isSumare) return 'UMT Sumaré';
+  if (isRecife) return 'CT Recife';
+  if (isSumare) return 'CT Sumaré';
+  return turma;
+}
+
 // dateToKI(): Honda fiscal year (KI), início 01/04, fim 31/03.
 function dateToKI(ms){
   if (ms==null) return null;
@@ -1607,7 +1592,7 @@ function pushTrilhaRow(idx, r, store, unmatchedDealers){
   store.dataIni.push(idx.dataInicioCarencia!==-1 ? parseFlexibleDate(r[idx.dataInicioCarencia]) : null);
   store.dataFim.push(idx.dataFimCarencia!==-1 ? parseFlexibleDate(r[idx.dataFimCarencia]) : null);
   store.cpf.push(idx.cpf!==-1 ? normStr(r[idx.cpf]) : '');
-  store.usuario.push(idx.usuario!==-1 ? normStr(r[idx.usuario]) : '');
+  store.usuario.push(intern(idx.usuario!==-1 ? normStr(r[idx.usuario]) : ''));
   store.n++;
 }
 
@@ -1630,7 +1615,7 @@ function pushMatriculaRow(idx, r, store, unmatchedDealers){
   store.situacaoUsuario.push(intern(idx.situacaoUsuario!==-1 ? normStr(r[idx.situacaoUsuario]) : ''));
   store.cpf.push(idx.cpf!==-1 ? normStr(r[idx.cpf]) : '');
   store.genero.push(intern(idx.genero!==-1 ? normStr(r[idx.genero]) : ''));
-  store.usuario.push(idx.usuario!==-1 ? normStr(r[idx.usuario]) : '');
+  store.usuario.push(intern(idx.usuario!==-1 ? normStr(r[idx.usuario]) : ''));
   store.n++;
 }
 
@@ -1956,30 +1941,51 @@ function initDealerMultiselect(){
       const chip = document.createElement('span');
       chip.className = 'ms-chip';
       chip.innerHTML = `${escapeHtml(meta ? dealerLabel(meta) : code)} <button type="button" aria-label="remover">×</button>`;
-      chip.querySelector('button').onclick = ()=>{ STATE.filters.dealers.delete(code); renderChips(); renderActiveTab(); };
+      chip.querySelector('button').onclick = ()=>{ STATE.filters.dealers.delete(code); renderChips(); renderDropdown(input.value); renderActiveTab(); };
       wrap.insertBefore(chip, input);
     });
   }
+  // search(): agora mantém as concessionárias já selecionadas na lista
+  // (com a caixinha marcada), para permitir marcar várias de uma vez sem o
+  // menu fechar a cada clique.
   function search(term){
     term = stripAccents(term).toUpperCase();
     const results = [];
     STATE.dealersByCode.forEach(d=>{
       if (d.segmento !== STATE.segment) return;
-      if (STATE.filters.dealers.has(d.codigo)) return;
       if (!term || stripAccents(d.nome).toUpperCase().includes(term) || d.codigo.includes(term) || stripAccents(d.cidade).toUpperCase().includes(term)){
         results.push(d);
       }
     });
-    results.sort((a,b)=>a.nome.localeCompare(b.nome));
-    return results.slice(0,60);
+    // selecionadas primeiro, depois ordem alfabética
+    results.sort((a,b)=>{
+      const selA = STATE.filters.dealers.has(a.codigo), selB = STATE.filters.dealers.has(b.codigo);
+      if (selA !== selB) return selA ? -1 : 1;
+      return a.nome.localeCompare(b.nome,'pt-BR');
+    });
+    return results.slice(0,80);
   }
   function renderDropdown(term){
     const results = search(term);
     if (!results.length){ dropdown.innerHTML = '<div class="ms-empty">Nenhuma concessionária encontrada</div>'; }
     else {
-      dropdown.innerHTML = results.map(d=>`<div class="ms-option" data-code="${d.codigo}">${escapeHtml(d.nome)} <small>${d.codigo} · ${escapeHtml(d.cidade)}/${d.uf}</small></div>`).join('');
+      dropdown.innerHTML = results.map(d=>{
+        const checked = STATE.filters.dealers.has(d.codigo);
+        return `<div class="ms-option${checked?' ms-option-checked':''}" data-code="${d.codigo}">
+          <input type="checkbox" ${checked?'checked':''} tabindex="-1">
+          <span>${escapeHtml(d.nome)} <small>${d.codigo} · ${escapeHtml(d.cidade)}/${d.uf}</small></span>
+        </div>`;
+      }).join('');
       dropdown.querySelectorAll('.ms-option').forEach(el=>{
-        el.onclick = ()=>{ STATE.filters.dealers.add(el.dataset.code); input.value=''; renderChips(); dropdown.classList.remove('open'); renderActiveTab(); };
+        el.onclick = (e)=>{
+          e.preventDefault();
+          const code = el.dataset.code;
+          if (STATE.filters.dealers.has(code)) STATE.filters.dealers.delete(code);
+          else STATE.filters.dealers.add(code);
+          renderChips();
+          renderDropdown(input.value); // mantém o menu aberto, atualiza as marcações
+          renderActiveTab();
+        };
       });
     }
     dropdown.classList.add('open');
@@ -2144,19 +2150,31 @@ function calculatePriorityScore(){
 }
 
 // calculateTurnover(): treinados desligados / total de treinados
+function isAtivoStatus(v){ return stripAccents(v).toUpperCase() === 'ATIVO'; }
+
+// calculateTurnover(): Turnover = colaboradores treinados que já foram
+// desligados ÷ total de colaboradores ATIVOS (não mais ÷ total de
+// treinados). "Ativos" é contado por pessoa (CPF distinto) a partir da
+// situação do usuário no relatório de matrícula, independente de terem
+// concluído algum treinamento ou não.
 function calculateTurnover(idxs, store){
   const byDealer = new Map(), byCargo = new Map();
-  const seenUser = new Set();
   for (const i of idxs){
+    const dealer = store.dealer[i], cargo = store.cargo[i]||'Não informado';
+    const cpf = store.cpf[i] || ('linha'+i);
+    if (!byDealer.has(dealer)) byDealer.set(dealer, {ativos:new Set(), desligadosTreinados:new Set()});
+    if (!byCargo.has(cargo)) byCargo.set(cargo, {ativos:new Set(), desligadosTreinados:new Set()});
+    const dObj = byDealer.get(dealer), cObj = byCargo.get(cargo);
+    if (isAtivoStatus(store.situacaoUsuario[i])){ dObj.ativos.add(cpf); cObj.ativos.add(cpf); }
     const concluded = isAprovado(store.situacaoAluno[i]) || stripAccents(store.statusMatricula[i]).toUpperCase()==='CONCLUIDO';
-    if (!concluded) continue;
-    const dealer = store.dealer[i], cargo = store.cargo[i]||'Não informado', inativo = isInativo(store.situacaoUsuario[i]) ? 1 : 0;
-    if (!byDealer.has(dealer)) byDealer.set(dealer, {total:0,desligados:0});
-    if (!byCargo.has(cargo)) byCargo.set(cargo, {total:0,desligados:0});
-    byDealer.get(dealer).total++; byCargo.get(cargo).total++;
-    if (inativo){ byDealer.get(dealer).desligados++; byCargo.get(cargo).desligados++; }
+    if (concluded && isInativo(store.situacaoUsuario[i])){ dObj.desligadosTreinados.add(cpf); cObj.desligadosTreinados.add(cpf); }
   }
-  return { byDealer, byCargo };
+  const finalize = (map) => {
+    const out = new Map();
+    map.forEach((v,k)=>out.set(k, { total: v.ativos.size, desligados: v.desligadosTreinados.size }));
+    return out;
+  };
+  return { byDealer: finalize(byDealer), byCargo: finalize(byCargo) };
 }
 
 // calculateClassDemand(): turmas sugeridas por curso (pendentes / capacidade)
@@ -2181,7 +2199,7 @@ function calculateClassDemand(idxs, store, capacity){
 function calculateOccupancy(idxs, store){
   const byTurma = new Map();
   for (const i of idxs){
-    const t = store.turma[i] || 'Sem turma informada';
+    const t = normalizeLocalName(store.turma[i] || 'Sem turma informada');
     if (!byTurma.has(t)) byTurma.set(t, {matriculados:0, concluidos:0});
     const o = byTurma.get(t);
     o.matriculados++;
@@ -2216,8 +2234,6 @@ function renderActiveTab(){
       case 'matriz': renderMatriz(); break;
       case 'demanda': renderMap(); break;
       case 'ocupacaolocal': renderOcupacaoLocal(); break;
-      case 'ocupacaoseg': renderOcupacaoSegmento(); break;
-      case 'prioridade': renderPrioridade(); break;
       case 'turnover': renderTurnover(); break;
       case 'novasturmas': renderNovasTurmas(); break;
       case 'concessionarias': renderConcessionarias(); break;
@@ -2612,14 +2628,16 @@ function drawDemandLayer(byDealer){
   });
 
   __heatLayer = L.heatLayer(points, {
-    radius: 34,
-    blur: 26,
-    maxZoom: 11,
+    radius: 24,
+    blur: 16,
+    maxZoom: 12,
     minOpacity: 0.45,
     gradient: { 0.0:'#1e3a8a', 0.25:'#0891b2', 0.5:'#22c55e', 0.7:'#facc15', 0.85:'#f97316', 1.0:'#dc2626' }
   }).addTo(__leafletMap);
 
   // Marcadores por cidade com o número exato — e nome da(s) concessionária(s).
+  // O nome/contagem só aparece ao passar o mouse (tooltip não permanente),
+  // para não poluir o mapa com texto fixo sobre cada cidade.
   byCity.forEach(o=>{
     if (!o.coord) return;
     const intensity = o.count/maxV;
@@ -2632,7 +2650,7 @@ function drawDemandLayer(byDealer){
     const label = o.cidade ? `${o.cidade}/${o.uf}` : o.uf;
     marker.bindTooltip(
       `<strong>${label}</strong> — ${o.count.toLocaleString('pt-BR')} pendência${o.count===1?'':'s'}`,
-      { permanent: true, direction: 'top', offset: [0,-6], className: 'uf-heat-label' }
+      { direction: 'top', offset: [0,-6], className: 'uf-heat-label' }
     );
     marker.bindPopup(`<strong>${label}</strong><br>${o.count.toLocaleString('pt-BR')} pendência${o.count===1?'':'s'} de treinamento<br><span style="font-size:11px;color:#666;">${dealerList}</span>`);
     __cityMarkers.push(marker);
@@ -2676,68 +2694,6 @@ function renderOcupacaoLocal(){
   document.getElementById('ocuRanking').innerHTML = bySub.map((r,i)=>rankRow(i+1, r.turma, fmtPct(r.taxa), r.taxa*100)).join('') || '<div class="empty-state"><p>Sem dados.</p></div>';
 }
 
-/* ---- Aba 9: Ocupação por segmento ---- */
-function renderOcupacaoSegmento(){
-  const el = document.getElementById('segKpis');
-  document.getElementById('mmNote').textContent = 'M&M (Marine & Power) não está disponível nos arquivos recebidos. A estrutura de agregação por segmento já contempla essa categoria — basta que os dados de M&M sejam vinculados à base de concessionárias (DEALERS_DB) com segmento "M&M" em uma próxima carga.';
-  if (!STATE.matricula){ noDataState(el); destroyChart('segChart'); return; }
-  const f = STATE.filters;
-  const hasDealerFilter = f.dealers.size > 0;
-  let kiWindow = null; if (f.ki) kiWindow = kiRange(Number(f.ki));
-  const custIni = f.dataInicio ? new Date(f.dataInicio+'T00:00:00').getTime() : null;
-  const custFim = f.dataFim ? new Date(f.dataFim+'T23:59:59').getTime() : null;
-  const store = STATE.matricula;
-  const counts = { '2W':0, '4W':0, 'M&M':0 };
-  for (let i=0;i<store.n;i++){
-    const meta = dealerMeta(store.dealer[i]); if (!meta) continue;
-    if (f.masterPresencialBlended && !isPresencialOuBlended(store.modalidade[i])) continue;
-    if (f.uf && meta.uf!==f.uf) continue;
-    if (f.regiao && meta.regiao!==f.regiao) continue;
-    if (hasDealerFilter && !f.dealers.has(meta.codigo)) continue;
-    if (f.cargo && store.cargo[i] !== f.cargo) continue;
-    if (f.curso && store.curso[i] !== f.curso) continue;
-    const dref = store.dataConclusao[i] != null ? store.dataConclusao[i] : store.dataInicio[i];
-    if (kiWindow && dref != null && (dref < kiWindow.start || dref > kiWindow.end)) continue;
-    if ((custIni || custFim) && dref != null){
-      if (custIni && dref < custIni) continue;
-      if (custFim && dref > custFim) continue;
-    }
-    counts[meta.segmento] = (counts[meta.segmento]||0)+1;
-  }
-  el.innerHTML = `${kpiCard('2W', counts['2W'].toLocaleString('pt-BR'), 'matrículas no filtro atual')}${kpiCard('4W', counts['4W'].toLocaleString('pt-BR'), 'matrículas no filtro atual')}${kpiCard('M&M', counts['M&M']||0, 'estrutura pronta — sem dados na base atual','warn')}`;
-  makeChart('segChart', {
-    type:'bar',
-    data:{ labels:['2W','4W','M&M'], datasets:[{ label:'Matrículas no filtro atual', data:[counts['2W'],counts['4W'],counts['M&M']||0], backgroundColor:[PALETTE[0],PALETTE[1],PALETTE[3]], borderRadius:8 }]},
-    options:{ responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
-  });
-}
-
-/* ---- Aba 10: Prioridade ---- */
-function renderPrioridade(){
-  const wrap = document.getElementById('priorityWeights');
-  wrap.innerHTML = Object.entries(CONFIG.priorityWeights).map(([k,v])=>`
-    <div class="config-item">
-      <label>${prioLabel(k)}</label>
-      <input type="range" min="0" max="50" value="${v}" data-weight="${k}">
-      <span class="val">${v}</span>
-    </div>`).join('');
-  wrap.querySelectorAll('input[type=range]').forEach(r=>{
-    r.addEventListener('input', ()=>{ CONFIG.priorityWeights[r.dataset.weight] = Number(r.value); r.nextElementSibling.textContent = r.value; renderPrioridadeTable(); renderVisaoGeral_safe(); });
-  });
-  renderPrioridadeTable();
-}
-function renderVisaoGeral_safe(){ if (STATE.activeTab==='visaogeral') renderVisaoGeral(); }
-function prioLabel(k){
-  return { diasSemTreinamento:'Dias sem treinamento', pendencias:'Pendências obrigatórias', baixoIT:'Baixo IT', baixoTSI:'Baixo TSI (futuro)', baixaParticipacao:'Baixa participação histórica' }[k] || k;
-}
-function renderPrioridadeTable(){
-  if (!STATE.trilha && !STATE.matricula){ noDataState(document.getElementById('prioTable').parentElement); return; }
-  const rows = calculatePriorityScore();
-  buildTable('prioTable', ['Concessionária','UF','Dias sem treinamento','Pendências','IT','Score de prioridade'],
-    rows.map(r=>[dealerLabelByCode(r.codigo), r.uf, r.dias==null?'—':r.dias, r.pendencias, fmtPct(r.itPct), r.score>=66?badge(r.score.toFixed(1),'bad'):r.score>=33?badge(r.score.toFixed(1),'warn'):badge(r.score.toFixed(1),'good')]),
-    rows.map(r=>({ code:r.codigo, source:'matricula' })));
-}
-
 /* ---- Aba 11: Turnover ---- */
 function renderTurnover(){
   if (!STATE.matricula){ noDataState(document.getElementById('turnKpis')); document.getElementById('turnTable').innerHTML=''; destroyChart('turnChart'); return; }
@@ -2745,19 +2701,19 @@ function renderTurnover(){
   const { byDealer, byCargo } = calculateTurnover(idxs, STATE.matricula);
   let tot=0, desl=0; byDealer.forEach(o=>{tot+=o.total; desl+=o.desligados;});
   document.getElementById('turnKpis').innerHTML = `
-    ${kpiCard('Turnover geral', fmtPct(tot?desl/tot:0), `${desl} de ${tot} treinados`, (tot?desl/tot:0)>0.2?'bad':'good')}
+    ${kpiCard('Turnover geral', fmtPct(tot?desl/tot:0), `${desl} de ${tot} colaboradores ativos`, (tot?desl/tot:0)>0.2?'bad':'good')}
     ${kpiCard('Concessionárias analisadas', byDealer.size, `segmento ${STATE.segment}`)}
   `;
-  const rows = [...byDealer.entries()].map(([code,o])=>{ const meta=dealerMeta(code); return {nome:meta?meta.nome:code, total:o.total, desl:o.desligados, taxa:o.total?o.desligados/o.total:0}; });
+  const rows = [...byDealer.entries()].map(([code,o])=>({codigo:code, total:o.total, desl:o.desligados, taxa:o.total?o.desligados/o.total:0}));
   rows.sort((a,b)=>b.taxa-a.taxa);
   const top = rows.slice(0,15);
   makeChart('turnChart', {
     type:'bar',
-    data:{ labels: top.map(r=>r.nome), datasets:[{ label:'Turnover (%)', data: top.map(r=>+(r.taxa*100).toFixed(1)), backgroundColor:'#c0392b', borderRadius:6 }]},
+    data:{ labels: top.map(r=>dealerLabelByCode(r.codigo)), datasets:[{ label:'Turnover (%)', data: top.map(r=>+(r.taxa*100).toFixed(1)), backgroundColor:'#c0392b', borderRadius:6 }]},
     options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}} }
   });
   const cargoRows = [...byCargo.entries()].map(([cargo,o])=>[cargo, o.total, o.desligados, fmtPct(o.total?o.desligados/o.total:0)]);
-  buildTable('turnTable', ['Cargo','Total treinados','Desligados','Turnover'], cargoRows);
+  buildTable('turnTable', ['Cargo','Colaboradores ativos','Desligados (dentre treinados)','Turnover'], cargoRows);
 }
 
 /* ---- Aba 12: Novas turmas ---- */
@@ -2974,7 +2930,7 @@ function wireStudentModal(){
 ======================================================================== */
 const TAB_EXPORT_TABLE = {
   ausencia: 'ausTable', it: 'itTable', itfuncao: 'itfTable', cobertura: 'covTable',
-  pendencias: 'pendTable', prioridade: 'prioTable', turnover: 'turnTable',
+  pendencias: 'pendTable', turnover: 'turnTable',
   novasturmas: 'turmaTable', concessionarias: 'dealerTable'
 };
 function exportActiveTabToExcel(){
